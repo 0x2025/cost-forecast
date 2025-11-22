@@ -1,0 +1,58 @@
+==================
+Basic Assignment
+==================
+x = 1
+---
+(source_file
+  (statement
+    (assignment
+      name: (identifier)
+      value: (expression
+        (number)))))
+
+==================
+Arithmetic
+==================
+y = x + 2 * 3
+---
+(source_file
+  (statement
+    (assignment
+      name: (identifier)
+      value: (expression
+        (binary_expression
+          (expression (identifier))
+          operator: (binary_operator)
+          (expression
+            (binary_expression
+              (expression (number))
+              operator: (binary_operator)
+              (expression (number)))))))))
+
+==================
+Declaration Input
+==================
+price: Input("data")
+---
+(source_file
+  (statement
+    (declaration
+      name: (identifier)
+      type: (type_def
+        (input_def
+          source: (string))))))
+
+==================
+Function Call
+==================
+total = SUM(A1, A2)
+---
+(source_file
+  (statement
+    (assignment
+      name: (identifier)
+      value: (expression
+        (function_call
+          function: (identifier)
+          (expression (identifier))
+          (expression (identifier)))))))

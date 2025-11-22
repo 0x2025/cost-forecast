@@ -1,0 +1,139 @@
+==================
+Number Formats
+==================
+x = 0.5 + .75 + 10.
+---
+(source_file
+  (statement
+    (assignment
+      name: (identifier)
+      value: (expression
+        (binary_expression
+          (expression
+            (binary_expression
+              (expression (number))
+              operator: (binary_operator)
+              (expression (number))))
+          operator: (binary_operator)
+          (expression (number)))))))
+
+==================
+Precedence and Associativity
+==================
+x = 1 + 2 * 3 ^ 4 ^ 5
+---
+(source_file
+  (statement
+    (assignment
+      name: (identifier)
+      value: (expression
+        (binary_expression
+          (expression (number))
+          operator: (binary_operator)
+          (expression
+            (binary_expression
+              (expression (number))
+              operator: (binary_operator)
+              (expression
+                (binary_expression
+                  (expression (number))
+                  operator: (binary_operator)
+                  (expression
+                    (binary_expression
+                      (expression (number))
+                      operator: (binary_operator)
+                      (expression (number)))))))))))))
+
+==================
+Nested Functions
+==================
+x = SUM(MAX(A, B), MIN(C, D))
+---
+(source_file
+  (statement
+    (assignment
+      name: (identifier)
+      value: (expression
+        (function_call
+          function: (identifier)
+          (expression
+            (function_call
+              function: (identifier)
+              (expression (identifier))
+              (expression (identifier))))
+          (expression
+            (function_call
+              function: (identifier)
+              (expression (identifier))
+              (expression (identifier)))))))))
+
+==================
+Comments
+==================
+x = 1 # Inline comment
+# Full line comment
+y = 2
+---
+(source_file
+  (statement
+    (assignment
+      name: (identifier)
+      value: (expression (number))))
+  (statement (comment))
+  (statement (comment))
+  (statement
+    (assignment
+      name: (identifier)
+      value: (expression (number)))))
+
+==================
+Parentheses
+==================
+x = (1 + 2) * 3
+---
+(source_file
+  (statement
+    (assignment
+      name: (identifier)
+      value: (expression
+        (binary_expression
+          (expression
+            (parenthesized_expression
+              (expression
+                (binary_expression
+                  (expression (number))
+                  operator: (binary_operator)
+                  (expression (number))))))
+          operator: (binary_operator)
+          (expression (number)))))))
+
+==================
+Nested Parentheses
+==================
+x = ((1 + 2))
+---
+(source_file
+  (statement
+    (assignment
+      name: (identifier)
+      value: (expression
+        (parenthesized_expression
+          (expression
+            (parenthesized_expression
+              (expression
+                (binary_expression
+                  (expression (number))
+                  operator: (binary_operator)
+                  (expression (number)))))))))))
+
+==================
+Scientific Notation (Not Supported)
+==================
+x = 1e10
+---
+(source_file
+  (statement
+    (assignment
+      name: (identifier)
+      value: (expression (number))))
+  (ERROR (identifier)))

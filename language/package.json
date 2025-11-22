@@ -1,0 +1,29 @@
+{
+  "name": "tree-sitter-costforecast",
+  "version": "1.0.0",
+  "description": "CostForecast DSL grammar",
+  "main": "bindings/node",
+  "keywords": [
+    "parsing",
+    "incremental",
+    "costforecast"
+  ],
+  "scripts": {
+    "test": "tree-sitter test"
+  },
+  "dependencies": {
+    "nan": "^2.22.0"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "^0.24.4"
+  },
+  "tree-sitter": [
+    {
+      "scope": "source.costforecast",
+      "file-types": [
+        "dsl"
+      ],
+      "injection-regex": "^costforecast$"
+    }
+  ]
+}

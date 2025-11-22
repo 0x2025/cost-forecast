@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="CostForecast.Api/CostForecast.Api.csproj" />
+  <Project Path="CostForecast.Engine.Tests/CostForecast.Engine.Tests.csproj" />
+  <Project Path="CostForecast.Engine/CostForecast.Engine.csproj" />
+</Solution>

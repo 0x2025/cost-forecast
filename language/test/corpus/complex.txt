@@ -1,0 +1,88 @@
+==================
+Apartment Model
+==================
+total_revenue = SUM(Range(apartments, unit_revenue))
+apartments: Input("apartment_list")
+
+unit_revenue = area * price * floor_factor
+area: Param
+price: Const(2000)
+floor_factor = IF(floor > 10, 1.1, 1.0)
+floor: Param
+---
+(source_file
+  (statement
+    (assignment
+      name: (identifier)
+      value: (expression
+        (function_call
+          function: (identifier)
+          (expression
+            (function_call
+              function: (identifier)
+              (expression (identifier))
+              (expression (identifier))))))))
+  (statement
+    (declaration
+      name: (identifier)
+      type: (type_def
+        (input_def
+          source: (string)))))
+  (statement
+    (assignment
+      name: (identifier)
+      value: (expression
+        (binary_expression
+          (expression
+            (binary_expression
+              (expression (identifier))
+              operator: (binary_operator)
+              (expression (identifier))))
+          operator: (binary_operator)
+          (expression (identifier))))))
+  (statement
+    (declaration
+      name: (identifier)
+      type: (type_def (param_def))))
+  (statement
+    (declaration
+      name: (identifier)
+      type: (type_def
+        (const_def
+          value: (number)))))
+  (statement
+    (assignment
+      name: (identifier)
+      value: (expression
+        (function_call
+          function: (identifier)
+          (expression
+            (binary_expression
+              (expression (identifier))
+              operator: (binary_operator)
+              (expression (number))))
+          (expression (number))
+          (expression (number))))))
+  (statement
+    (declaration
+      name: (identifier)
+      type: (type_def (param_def)))))
+
+==================
+Range Syntax
+==================
+subset = Range(A1:A10, func)
+---
+(source_file
+  (statement
+    (assignment
+      name: (identifier)
+      value: (expression
+        (function_call
+          function: (identifier)
+          (expression
+            (binary_expression
+              (expression (identifier))
+              operator: (binary_operator)
+              (expression (identifier))))
+          (expression (identifier)))))))
