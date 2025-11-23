@@ -157,6 +157,28 @@ public class CompilerTests
     }
 
     [Fact]
+    public void Should_Handle_Input_With_Same_Name_As_Variable()
+    {
+        var compiler = new DslCompiler();
+        var source = @"
+            inflation = Input(""inflation"")
+            x = 10 * inflation
+        ";
+
+        var graph = compiler.Compile(source);
+
+        Assert.NotNull(graph);
+        // The variable 'inflation' is a FormulaNode
+        var inflationVar = graph.GetNode("inflation");
+        Assert.IsType<FormulaNode>(inflationVar);
+
+        // The input node is created with $Input_ prefix
+        var inputNode = graph.GetNode("$Input_inflation");
+        Assert.IsType<InputNode>(inputNode);
+        Assert.Equal("inflation", ((InputNode)inputNode).Key);
+    }
+
+    [Fact]
     public void Should_Compile_String_Assignment()
     {
         var compiler = new DslCompiler();

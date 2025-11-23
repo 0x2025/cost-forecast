@@ -1,3 +1,39 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Syntax Highlighting */
+.cm-keyword {
+    color: #aa00ff;
+    font-weight: bold;
+}
+
+.cm-variable {
+    color: #0000ff;
+}
+
+.cm-number {
+    color: #116644;
+}
+
+.cm-string {
+    color: #aa1111;
+}
+
+.cm-operator {
+    color: #555555;
+}
+
+.cm-comment {
+    color: #999999;
+    font-style: italic;
+}
+
+.cm-function {
+    color: #dd4400;
+    font-weight: bold;
+}
+
+.cm-error {
+    text-decoration: underline wavy red;
+}

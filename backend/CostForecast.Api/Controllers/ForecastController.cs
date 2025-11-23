@@ -21,7 +21,8 @@ public class ForecastController : ControllerBase
             var graph = compiler.Compile(request.Source);
 
             var context = new CalculationContext();
-            if (request.Inputs != null && request.Inputs.Count > 0)
+            // Add inputs
+            if (request.Inputs != null)
             {
                 context.AddInputProvider(new NamedInputProvider(request.Inputs));
             }
@@ -29,18 +30,21 @@ public class ForecastController : ControllerBase
             var evaluator = new GraphEvaluator();
             var results = evaluator.Evaluate(graph, context);
 
-            response.Results = results;
+            return Ok(new CalculationResponse
+            {
+                Results = results
+            });
             // Graph visualization serialization could be added here
         }
         catch (Exception ex)
         {
-            response.Errors.Add(ex.Message);
-            // Return 200 OK even with errors, but with error list populated? 
-            // Or 400 Bad Request? 
-            // Usually if it's a compilation/runtime error of the user code, 400 is appropriate.
-            return BadRequest(response);
+            return BadRequest(new CalculationResponse
+            {
+                Errors = new List<CalculationError> 
+                { 
+                    new CalculationError { Message = ex.Message } 
+                }
+            });
         }
-
-        return Ok(response);
     }
 }

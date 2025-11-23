@@ -119,4 +119,39 @@ public class EvaluatorTests
 
         results["Result"].Should().Be(7);
     }
+    [Fact]
+    public void Should_Throw_When_Input_Missing_And_Used_In_Calculation()
+    {
+        // Arrange
+        var compiler = new CostForecast.Engine.Compiler.DslCompiler();
+        var source = "x = 10 * Input(\"inflation\")";
+        var graph = compiler.Compile(source);
+
+        var context = new CalculationContext();
+        // Provide invalid input (empty string or non-numeric)
+        var inputs = new Dictionary<string, object> { { "inflation", "invalid_number" } };
+        context.AddInputProvider(new NamedInputProvider(inputs));
+
+        var evaluator = new GraphEvaluator();
+
+        // Act
+        Action act = () => evaluator.Evaluate(graph, context);
+
+        // Assert
+        act.Should().Throw<System.Exception>()
+           .WithMessage("*Input 'inflation' has invalid value*"); 
+    }
+
+    [Fact]
+    public void Should_Evaluate_Const_Function()
+    {
+        var compiler = new CostForecast.Engine.Compiler.DslCompiler();
+        var source = "x = Const(42)";
+        var graph = compiler.Compile(source);
+
+        var evaluator = new GraphEvaluator();
+        var results = evaluator.Evaluate(graph, new CalculationContext());
+
+        results["x"].Should().Be(42);
+    }
 }

@@ -192,12 +192,39 @@ public class AstTranslator
                          graph.AddNode(inputNode);
                      }
                      var dep = scope[inputNodeName];
-                     return (ctx => ctx[inputNodeName], new List<GraphNode> { dep });
+                     
+                     // Runtime validation wrapper
+                     Func<Dictionary<string, object>, object> inputCalc = ctx => 
+                     {
+                         var val = ctx[inputNodeName];
+                         if (val == null) return 0.0; // Treat missing as 0? Or throw? Let's treat as 0 for now or let Convert handle null (which is 0)
+                         
+                         // If it's a string, check if it's numeric
+                         if (val is string s)
+                         {
+                             if (string.IsNullOrWhiteSpace(s)) return 0.0; // Treat empty as 0
+                             if (!double.TryParse(s, out var d))
+                             {
+                                 throw new Exception($"Input '{key}' has invalid value: '{s}'. Expected a number.");
+                             }
+                             return d;
+                         }
+                         return val;
+                     };
+
+                     return (inputCalc, new List<GraphNode> { dep });
                  }
+
                  else 
                  {
                      throw new Exception($"Input argument must be a string literal. Found: {argNode.Kind}");
                  }
+            }
+            else if (funcName == "Const")
+            {
+                 if (node.NamedChildCount < 2) throw new Exception("Const requires 1 argument.");
+                 var argNode = node.NamedChild(1);
+                 return ParseExpression(argNode, scope, graph);
             }
             
             var args = new List<(Func<Dictionary<string, object>, object>, List<GraphNode>)>();
