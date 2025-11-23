@@ -30,11 +30,14 @@ public class ForecastController : ControllerBase
             var evaluator = new GraphEvaluator();
             var results = evaluator.Evaluate(graph, context);
 
+            // Serialize the graph structure
+            var graphDto = GraphSerializer.SerializeGraph(graph);
+
             return Ok(new CalculationResponse
             {
-                Results = results
+                Results = results,
+                Graph = graphDto
             });
-            // Graph visualization serialization could be added here
         }
         catch (Exception ex)
         {

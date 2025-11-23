@@ -22,6 +22,11 @@ public class DependencyGraph
         return _nodes.TryGetValue(name, out var node) ? node : null;
     }
 
+    public IEnumerable<GraphNode> GetAllNodes()
+    {
+        return _nodes.Values;
+    }
+
     /// <summary>
     /// Performs a Topological Sort using Kahn's Algorithm to determine the execution order of the graph.
     /// </summary>

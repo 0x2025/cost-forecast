@@ -13,9 +13,26 @@ export interface CalculationError {
     column?: number;
 }
 
+export interface GraphNode {
+    id: string;
+    type: string;
+    label: string;
+    metadata?: Record<string, any>;
+}
+
+export interface GraphEdge {
+    source: string;
+    target: string;
+}
+
+export interface GraphData {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+}
+
 export interface CalculationResponse {
     results: Record<string, any>;
-    graph: any;
+    graph: GraphData | null;
     errors: CalculationError[];
 }
 
