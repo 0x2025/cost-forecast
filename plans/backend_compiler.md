@@ -10,7 +10,7 @@ Implement the `DslCompiler` in `CostForecast.Engine` to parse DSL source code us
 >     - **Script**: Create `language/build_parser.sh` to automate this.
 >     - **macOS**: `gcc -o libtree-sitter-costforecast.dylib -shared language/src/parser.c -I language/src`
 >     - **Linux**: `gcc -o libtree-sitter-costforecast.so -shared language/src/parser.c -I language/src -fPIC`
-> 2.  **Bindings**: Use `TreeSitter` NuGet package (or equivalent standard binding) and P/Invoke `tree_sitter_costforecast` to load the language.
+> 2.  **Bindings**: Use `TreeSitter` NuGet package (v1.0.0) (or equivalent standard binding) and P/Invoke `tree_sitter_costforecast` to load the language.
 > 3.  **No Mocking**: The compiler will use the actual parser.
 
 ## Proposed Changes

@@ -89,7 +89,7 @@ public class AstTranslator
             if (graphNode is FormulaNode formulaNode)
             {
                 // Parse the expression to build the calculation delegate and find dependencies
-                var (calc, deps) = ParseExpression(contentNode, nodes);
+                var (calc, deps) = ParseExpression(contentNode, nodes, graph);
                 
                 formulaNode.Calculation = calc;
                 foreach (var dep in deps)
@@ -102,7 +102,7 @@ public class AstTranslator
         return graph;
     }
 
-    private (Func<Dictionary<string, object>, object>, List<GraphNode>) ParseExpression(Node node, Dictionary<string, GraphNode> scope)
+    private (Func<Dictionary<string, object>, object>, List<GraphNode>) ParseExpression(Node node, Dictionary<string, GraphNode> scope, DependencyGraph graph)
     {
         // Recursive parsing
         string kind;
@@ -136,8 +136,8 @@ public class AstTranslator
             
             var op = GetText(opNode); 
 
-            var (leftCalc, leftDeps) = ParseExpression(leftNode, scope);
-            var (rightCalc, rightDeps) = ParseExpression(rightNode, scope);
+            var (leftCalc, leftDeps) = ParseExpression(leftNode, scope, graph);
+            var (rightCalc, rightDeps) = ParseExpression(rightNode, scope, graph);
 
             var deps = new List<GraphNode>();
             deps.AddRange(leftDeps);
@@ -168,11 +168,43 @@ public class AstTranslator
             var funcNode = node.NamedChild(0);
             var funcName = GetText(funcNode).Trim();
             
+            if (funcName == "Input")
+            {
+                 if (node.NamedChildCount < 2) throw new Exception("Input requires 1 argument.");
+                 var argNode = node.NamedChild(1);
+                 
+                 // Unwrap expression wrapper if present
+                 while (argNode.Kind == "expression" || argNode.Kind == "parenthesized_expression")
+                 {
+                     argNode = argNode.NamedChild(0);
+                 }
+
+                 if (argNode.Kind == "string")
+                 {
+                     var text = GetText(argNode);
+                     var key = text.Substring(1, text.Length - 2);
+                     var inputNodeName = $"$Input_{key}";
+                     
+                     if (!scope.ContainsKey(inputNodeName))
+                     {
+                         var inputNode = new InputNode(inputNodeName, key);
+                         scope[inputNodeName] = inputNode;
+                         graph.AddNode(inputNode);
+                     }
+                     var dep = scope[inputNodeName];
+                     return (ctx => ctx[inputNodeName], new List<GraphNode> { dep });
+                 }
+                 else 
+                 {
+                     throw new Exception($"Input argument must be a string literal. Found: {argNode.Kind}");
+                 }
+            }
+            
             var args = new List<(Func<Dictionary<string, object>, object>, List<GraphNode>)>();
             // Iterate named children starting from 1 (0 is function name)
             for(int i=1; i<node.NamedChildCount; i++) {
                 var c = node.NamedChild(i);
-                args.Add(ParseExpression(c, scope));
+                args.Add(ParseExpression(c, scope, graph));
             }
             
             var deps = new List<GraphNode>();
@@ -200,7 +232,7 @@ public class AstTranslator
             // parenthesized_expression: '(' expression ')'
             // The parentheses are anonymous nodes, so the only named child is the expression.
             if (node.NamedChildCount < 1) throw new Exception("Parenthesized expression must have 1 named child.");
-            return ParseExpression(node.NamedChild(0), scope);
+            return ParseExpression(node.NamedChild(0), scope, graph);
         }
         else if (kind == "unary_expression")
         {
@@ -211,7 +243,7 @@ public class AstTranslator
             var exprNode = node.NamedChild(1);
             
             var op = GetText(opNode);
-            var (calc, deps) = ParseExpression(exprNode, scope);
+            var (calc, deps) = ParseExpression(exprNode, scope, graph);
             
             Func<Dictionary<string, object>, object> newCalc = ctx =>
             {
@@ -238,7 +270,7 @@ public class AstTranslator
         {
             // Unwrap expression node
             // Ensure we return the dependencies from the child!
-            var (c, d) = ParseExpression(node.NamedChild(0), scope);
+            var (c, d) = ParseExpression(node.NamedChild(0), scope, graph);
             // Console.WriteLine($"Expression unwrapped. Child deps: {d.Count}");
             return (c, d);
         }
