@@ -191,4 +191,40 @@ public class CompilerTests
         node.Should().BeOfType<ConstantNode>()
             .Which.Value.Should().Be("hello");
     }
+
+    [Fact]
+    public void Should_Compile_Complex_Expression_With_Input_And_SUM()
+    {
+        // TDD Test: x = 10, y = x * 2, inflation = Input("inflation"), total = SUM(x, y) + inflation
+        var compiler = new DslCompiler();
+        var graph = compiler.Compile(@"
+            x = 10
+            y = x * 2
+            inflation = Input(""inflation"")
+            total = SUM(x, y) + inflation
+        ");
+
+        var x = graph.GetNode("x");
+        var y = graph.GetNode("y");
+        var inflation = graph.GetNode("inflation");
+        var total = graph.GetNode("total");
+        var inputNode = graph.GetNode("$Input_inflation");
+
+        // Verify nodes exist and have correct types
+        x.Should().NotBeNull().And.BeOfType<ConstantNode>()
+            .Which.Value.Should().Be(10.0);
+        
+        y.Should().NotBeNull().And.BeOfType<FormulaNode>();
+        y.Dependencies.Should().ContainSingle()
+            .Which.Should().BeSameAs(x);
+
+        inflation.Should().NotBeNull().And.BeOfType<FormulaNode>();
+        inputNode.Should().NotBeNull().And.BeOfType<InputNode>()
+            .Which.Key.Should().Be("inflation");
+
+        total.Should().NotBeNull().And.BeOfType<FormulaNode>();
+        total.Dependencies.Should().Contain(x);
+        total.Dependencies.Should().Contain(y);
+        total.Dependencies.Should().Contain(inflation);
+    }
 }

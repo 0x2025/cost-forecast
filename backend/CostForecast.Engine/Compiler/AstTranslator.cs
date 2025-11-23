@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using CostForecast.Engine.Core;
 using TreeSitter;
 
@@ -13,6 +14,36 @@ public class AstTranslator
     public AstTranslator(string source)
     {
         _source = source;
+    }
+
+    private static double ConvertToDouble(object value)
+    {
+        if (value == null)
+            return 0.0;
+
+        // Handle JsonElement from API deserialization
+        if (value is JsonElement jsonElement)
+        {
+            return jsonElement.ValueKind switch
+            {
+                JsonValueKind.Number => jsonElement.GetDouble(),
+                JsonValueKind.String => double.TryParse(jsonElement.GetString(), out var d) ? d : throw new Exception($"Cannot convert string '{jsonElement.GetString()}' to number"),
+                JsonValueKind.True => 1.0,
+                JsonValueKind.False => 0.0,
+                JsonValueKind.Null => 0.0,
+                _ => throw new Exception($"Cannot convert JsonElement of type {jsonElement.ValueKind} to number")
+            };
+        }
+
+        // Handle primitive types from tests
+        if (value is double dbl) return dbl;
+        if (value is int i) return i;
+        if (value is long l) return l;
+        if (value is float f) return f;
+        if (value is decimal dec) return (double)dec;
+        
+        // Fallback to Convert for other IConvertible types
+        return Convert.ToDouble(value);
     }
 
     private string GetText(Node node)
@@ -145,8 +176,8 @@ public class AstTranslator
 
             Func<Dictionary<string, object>, object> calc = ctx =>
             {
-                var l = Convert.ToDouble(leftCalc(ctx));
-                var r = Convert.ToDouble(rightCalc(ctx));
+                var l = ConvertToDouble(leftCalc(ctx));
+                var r = ConvertToDouble(rightCalc(ctx));
                 return op switch
                 {
                     "+" => l + r,
@@ -209,7 +240,8 @@ public class AstTranslator
                              }
                              return d;
                          }
-                         return val;
+                         // Use ConvertToDouble to handle JsonElement and other types
+                         return ConvertToDouble(val);
                      };
 
                      return (inputCalc, new List<GraphNode> { dep });
@@ -240,7 +272,7 @@ public class AstTranslator
             Func<Dictionary<string, object>, object> calc = ctx => {
                 // Execute args
                 var values = new List<double>();
-                foreach(var a in args) values.Add(Convert.ToDouble(a.Item1(ctx)));
+                foreach(var a in args) values.Add(ConvertToDouble(a.Item1(ctx)));
                 
                 if (funcName == "SUM") return values.Sum();
                 // ... others
@@ -274,7 +306,7 @@ public class AstTranslator
             
             Func<Dictionary<string, object>, object> newCalc = ctx =>
             {
-                var val = Convert.ToDouble(calc(ctx));
+                var val = ConvertToDouble(calc(ctx));
                 return op switch
                 {
                     "+" => val,

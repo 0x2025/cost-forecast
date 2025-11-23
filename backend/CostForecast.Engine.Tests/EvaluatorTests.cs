@@ -154,4 +154,69 @@ public class EvaluatorTests
 
         results["x"].Should().Be(42);
     }
+
+    [Fact]
+    public void Should_Evaluate_Complex_Expression_With_Input_And_SUM()
+    {
+        // TDD Test: x = 10, y = x * 2 = 20, inflation = 5, total = SUM(10, 20) + 5 = 35
+        var compiler = new CostForecast.Engine.Compiler.DslCompiler();
+        var source = @"
+            x = 10
+            y = x * 2
+            inflation = Input(""inflation"")
+            total = SUM(x, y) + inflation
+        ";
+        
+        var graph = compiler.Compile(source);
+
+        var context = new CalculationContext();
+        var inputs = new Dictionary<string, object> { { "inflation", 5 } };
+        context.AddInputProvider(new NamedInputProvider(inputs));
+
+        var evaluator = new GraphEvaluator();
+        var results = evaluator.Evaluate(graph, context);
+
+        // Assert all values
+        results["x"].Should().Be(10);
+        results["y"].Should().Be(20); // 10 * 2
+        results["inflation"].Should().Be(5);
+        results["total"].Should().Be(35); // SUM(10, 20) + 5 = 30 + 5 = 35
+    }
+
+    [Fact]
+    public void Should_Evaluate_Expression_With_JsonElement_Inputs()
+    {
+        // This test simulates how inputs come from the API (as JsonElement)
+        var compiler = new CostForecast.Engine.Compiler.DslCompiler();
+        var source = @"
+            x = 10
+            y = x * 2
+            inflation = Input(""inflation"")
+            total = SUM(x, y) + inflation
+        ";
+        
+        var graph = compiler.Compile(source);
+
+        // Simulate API deserialization by creating JsonElement from JSON string
+        var jsonString = "{\"inflation\": 5}";
+        var jsonDoc = System.Text.Json.JsonDocument.Parse(jsonString);
+        var inputs = new Dictionary<string, object>();
+        
+        foreach (var prop in jsonDoc.RootElement.EnumerateObject())
+        {
+            inputs[prop.Name] = prop.Value; // This creates a JsonElement object
+        }
+
+        var context = new CalculationContext();
+        context.AddInputProvider(new NamedInputProvider(inputs));
+
+        var evaluator = new GraphEvaluator();
+        var results = evaluator.Evaluate(graph, context);
+
+        // Assert all values - should work exactly like primitive inputs
+        results["x"].Should().Be(10.0);
+        results["y"].Should().Be(20.0); // 10 * 2
+        results["inflation"].Should().Be(5.0);
+        results["total"].Should().Be(35.0); // SUM(10, 20) + 5 = 30 + 5 = 35
+    }
 }
