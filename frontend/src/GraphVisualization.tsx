@@ -9,48 +9,16 @@ import {
     useNodesState,
     useEdgesState,
     MarkerType,
+    ConnectionLineType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { GraphData } from './api';
-import dagre from 'dagre';
+import ELK, { type ElkNode } from 'elkjs/lib/elk.bundled';
 
 interface GraphVisualizationProps {
     graphData: GraphData | null;
 }
 
-// Dagre layout configuration
-const dagreGraph = new dagre.graphlib.Graph();
-dagreGraph.setDefaultEdgeLabel(() => ({}));
-
-const nodeWidth = 180;
-const nodeHeight = 40;
-
-const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
-    dagreGraph.setGraph({ rankdir: 'TB', nodesep: 50, ranksep: 80 });
-
-    nodes.forEach((node) => {
-        dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
-    });
-
-    edges.forEach((edge) => {
-        dagreGraph.setEdge(edge.source, edge.target);
-    });
-
-    dagre.layout(dagreGraph);
-
-    const layoutedNodes = nodes.map((node) => {
-        const nodeWithPosition = dagreGraph.node(node.id);
-        return {
-            ...node,
-            position: {
-                x: nodeWithPosition.x - nodeWidth / 2,
-                y: nodeWithPosition.y - nodeHeight / 2,
-            },
-        };
-    });
-
-    return { nodes: layoutedNodes, edges };
-};
 
 // Node style based on type
 const getNodeStyle = (type: string) => {
@@ -108,41 +76,67 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
             return;
         }
 
-        // Create nodes
-        const flowNodes: Node[] = graphData.nodes.map((node) => ({
-            id: node.id,
-            type: 'default',
-            data: {
-                label: node.label,
-                metadata: node.metadata
-            },
-            position: { x: 0, y: 0 }, // Will be set by layout
-            style: getNodeStyle(node.type),
-        }));
+        const elk = new ELK();
 
-        // Create edges
-        const flowEdges: Edge[] = graphData.edges.map((edge, idx) => ({
-            id: `e-${edge.source}-${edge.target}-${idx}`,
-            source: edge.source,
-            target: edge.target,
-            type: 'smoothstep',
-            animated: true,
-            markerEnd: {
-                type: MarkerType.ArrowClosed,
-                width: 20,
-                height: 20,
-            },
-            style: { stroke: '#6b7280', strokeWidth: 2 },
-        }));
+        const layoutOptions = {
+            'elk.algorithm': 'layered',
+            'elk.direction': 'LEFT',
+            'elk.spacing.nodeNode': '80',
+            'elk.layered.spacing.nodeNodeBetweenLayers': '100',
+            'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
+            'elk.edgeRouting': 'ORTHOGONAL',
+        };
 
-        // Apply layout
-        const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-            flowNodes,
-            flowEdges
-        );
+        const graph: ElkNode = {
+            id: 'root',
+            layoutOptions: layoutOptions,
+            children: graphData.nodes.map((node) => ({
+                id: node.id,
+                width: 180,
+                height: 40,
+                labels: [{ text: node.label }],
+            })),
+            edges: graphData.edges.map((edge, idx) => ({
+                id: `e-${edge.source}-${edge.target}-${idx}`,
+                sources: [edge.source],
+                targets: [edge.target],
+            })),
+        };
 
-        setNodes(layoutedNodes);
-        setEdges(layoutedEdges);
+        elk.layout(graph)
+            .then((layoutedGraph) => {
+                // Create nodes with layout positions
+                const flowNodes: Node[] = (layoutedGraph.children || []).map((node) => ({
+                    id: node.id,
+                    type: 'default',
+                    data: {
+                        label: graphData.nodes.find(n => n.id === node.id)?.label || node.id,
+                        metadata: graphData.nodes.find(n => n.id === node.id)?.metadata
+                    },
+                    position: { x: node.x!, y: node.y! },
+                    style: getNodeStyle(graphData.nodes.find(n => n.id === node.id)?.type || 'default'),
+                }));
+
+                // Create edges
+                const flowEdges: Edge[] = graphData.edges.map((edge, idx) => ({
+                    id: `e-${edge.source}-${edge.target}-${idx}`,
+                    source: edge.source,
+                    target: edge.target,
+                    type: ConnectionLineType.SimpleBezier,
+                    animated: false,
+                    markerEnd: {
+                        type: MarkerType.ArrowClosed,
+                        width: 20,
+                        height: 20,
+                    },
+                    style: { stroke: '#6b7280', strokeWidth: 2 },
+                }));
+
+                setNodes(flowNodes);
+                setEdges(flowEdges);
+            })
+            .catch(console.error);
+
     }, [graphData, setNodes, setEdges]);
 
     if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
@@ -178,6 +172,7 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
                 onEdgesChange={onEdgesChange}
                 fitView
                 attributionPosition="bottom-left"
+                connectionLineType='smoothstep'
             >
                 <Background color="#e5e7eb" gap={16} />
                 <Controls />

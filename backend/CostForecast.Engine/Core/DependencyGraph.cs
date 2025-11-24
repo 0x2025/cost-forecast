@@ -28,6 +28,47 @@ public class DependencyGraph
     }
 
     /// <summary>
+    /// Creates a deep clone of the dependency graph.
+    /// Used to create evaluated graphs from compiled graphs.
+    /// </summary>
+    public DependencyGraph Clone()
+    {
+        var cloned = new DependencyGraph();
+        var nodeMap = new Dictionary<GraphNode, GraphNode>();
+
+        // Clone all nodes
+        foreach (var node in _nodes.Values)
+        {
+            GraphNode clonedNode = node switch
+            {
+                ConstantNode c => new ConstantNode(c.Name, c.Value),
+                InputNode i => new InputNode(i.Name, i.Key),
+                RangeNode r => new RangeNode(r.Name, r.SourceCalculation, r.TargetCalculation),
+                FormulaNode f => new FormulaNode(f.Name, f.Calculation),
+                _ => throw new NotSupportedException($"Cannot clone node type: {node.GetType().Name}")
+            };
+
+            nodeMap[node] = clonedNode;
+            cloned.AddNode(clonedNode);
+        }
+
+        // Clone dependencies
+        foreach (var (originalNode, clonedNode) in nodeMap)
+        {
+            foreach (var dependency in originalNode.Dependencies)
+            {
+                if (!nodeMap.ContainsKey(dependency))
+                {
+                    throw new InvalidOperationException($"Dependency {dependency.Name} not found in node map during cloning");
+                }
+                clonedNode.Dependencies.Add(nodeMap[dependency]);
+            }
+        }
+
+        return cloned;
+    }
+
+    /// <summary>
     /// Performs a Topological Sort using Kahn's Algorithm to determine the execution order of the graph.
     /// </summary>
     /// <returns>A list of nodes in the order they should be executed.</returns>

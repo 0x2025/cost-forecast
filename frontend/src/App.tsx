@@ -7,12 +7,24 @@ import { InputGrid, type InputRow } from './InputGrid';
 import { GraphVisualization } from './GraphVisualization';
 
 function App() {
-  const [source, setSource] = useState(`x = 10
-y = x * 2
-total = SUM(x, y)`);
+  const [source, setSource] = useState(`
+qty: Param
+price: Param
+row_total = qty * price
+
+items = Input("items")
+tax_rate = Input("tax_rate")
+
+item_totals = Range(items, row_total)
+
+subtotal = SUM(item_totals)
+tax = subtotal * tax_rate
+grand_total = subtotal + tax`);
+
   // Initialize with some default rows
   const [inputs, setInputs] = useState<InputRow[]>([
-    { key: 'inflation', value: '1.05' }
+    { key: 'tax_rate', value: '0.1' },
+    { key: 'items', value: '[{"qty": 2, "price": 10}, {"qty": 5, "price": 20}, {"qty": 1, "price": 100}]' }
   ]);
   const [result, setResult] = useState<CalculationResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -93,8 +105,8 @@ total = SUM(x, y)`);
             <button
               onClick={() => setActiveTab('results')}
               className={`px-6 py-2 font-medium transition-colors ${activeTab === 'results'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-800'
+                ? 'border-b-2 border-blue-600 text-blue-600'
+                : 'text-gray-600 hover:text-gray-800'
                 }`}
             >
               Results
@@ -102,8 +114,8 @@ total = SUM(x, y)`);
             <button
               onClick={() => setActiveTab('graph')}
               className={`px-6 py-2 font-medium transition-colors ${activeTab === 'graph'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-800'
+                ? 'border-b-2 border-blue-600 text-blue-600'
+                : 'text-gray-600 hover:text-gray-800'
                 }`}
             >
               Graph
@@ -116,7 +128,7 @@ total = SUM(x, y)`);
               <div>
                 {result && (
                   <div>
-                    {result.errors.length > 0 && (
+                    {result.errors && result.errors.length > 0 && (
                       <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
                         <h3 className="text-red-700 font-bold">Errors</h3>
                         <ul className="list-disc list-inside text-red-600">

@@ -20,7 +20,7 @@ public class EvaluatorTests
         var evaluator = new GraphEvaluator();
 
         // Act
-        var results = evaluator.Evaluate(graph, context);
+        var (results, _) = evaluator.Evaluate(graph, context);
 
         // Assert
         results["X"].Should().Be(5);
@@ -33,7 +33,7 @@ public class EvaluatorTests
         var graph = new DependencyGraph();
         var x = new ConstantNode("X", 1);
         // Y = X + 1
-        var y = new FormulaNode("Y", values => (int)values["X"] + 1);
+        var y = new FormulaNode("Y", values => (int)values.Get("X") + 1);
         y.AddDependency(x);
 
         graph.AddNode(x);
@@ -43,7 +43,7 @@ public class EvaluatorTests
         var evaluator = new GraphEvaluator();
 
         // Act
-        var results = evaluator.Evaluate(graph, context);
+        var (results, _) = evaluator.Evaluate(graph, context);
 
         // Assert
         results["Y"].Should().Be(2);
@@ -65,7 +65,7 @@ public class EvaluatorTests
         var evaluator = new GraphEvaluator();
 
         // Act
-        var results = evaluator.Evaluate(graph, context);
+        var (results, _) = evaluator.Evaluate(graph, context);
 
         // Assert
         results["Rate"].Should().Be(0.5);
@@ -87,7 +87,7 @@ public class EvaluatorTests
         var evaluator = new GraphEvaluator();
 
         // Act
-        var results = evaluator.Evaluate(graph, context);
+        var (results, _) = evaluator.Evaluate(graph, context);
 
         // Assert
         results["Val"].Should().Be(100);
@@ -96,28 +96,73 @@ public class EvaluatorTests
     [Fact]
     public void Should_Evaluate_Complex_Expression()
     {
-        // 1 + 2 * 3 = 7
+        // Arrange
         var graph = new DependencyGraph();
-        var a = new ConstantNode("A", 1);
-        var b = new ConstantNode("B", 2);
-        var c = new ConstantNode("C", 3);
-        
-        var result = new FormulaNode("Result", values => 
-            (int)values["A"] + (int)values["B"] * (int)values["C"]);
-        
-        result.AddDependency(a);
-        result.AddDependency(b);
-        result.AddDependency(c);
+        var nodeA = new ConstantNode("A", 10.0);
+        var nodeB = new ConstantNode("B", 20.0);
+        graph.AddNode(nodeA);
+        graph.AddNode(nodeB);
 
-        graph.AddNode(a);
-        graph.AddNode(b);
-        graph.AddNode(c);
-        graph.AddNode(result);
+        // C = A + B
+        var formulaNode = new FormulaNode("C", ctx => (double)ctx.Get("A") + (double)ctx.Get("B"));
+        formulaNode.AddDependency(nodeA);
+        formulaNode.AddDependency(nodeB);
+        graph.AddNode(formulaNode);
+
+        var context = new CalculationContext();
+        var evaluator = new GraphEvaluator();
+        var (results, _) = evaluator.Evaluate(graph, context);
+
+        results["C"].Should().Be(30.0);
+    }
+
+    [Fact]
+    public void Should_Evaluate_Complex_Formula()
+    {
+        var graph = new DependencyGraph();
+        var nodeA = new ConstantNode("A", 10.0);
+        var nodeB = new ConstantNode("B", 20.0);
+        var nodeC = new ConstantNode("C", 5.0);
+        
+        // D = (A + B) * C
+        var nodeD = new FormulaNode("D", ctx => ((double)ctx.Get("A") + (double)ctx.Get("B")) * (double)ctx.Get("C"));
+        
+        nodeD.AddDependency(nodeA);
+        nodeD.AddDependency(nodeB);
+        nodeD.AddDependency(nodeC);
+        
+        graph.AddNode(nodeA);
+        graph.AddNode(nodeB);
+        graph.AddNode(nodeC);
+        graph.AddNode(nodeD);
+
+        var context = new CalculationContext();
+        var evaluator = new GraphEvaluator();
+        var (results, _) = evaluator.Evaluate(graph, context);
+
+        results["D"].Should().Be(150.0);
+    }
+
+    [Fact]
+    public void Should_Handle_Input_Nodes()
+    {
+        var graph = new DependencyGraph();
+        var inputNode = new InputNode("price", "item_price");
+        // total = price * 1.2
+        var formulaNode = new FormulaNode("total", ctx => (double)ctx.Get("price") * 1.2);
+        formulaNode.AddDependency(inputNode);
+        
+        graph.AddNode(inputNode);
+        graph.AddNode(formulaNode);
+
+        var context = new CalculationContext();
+        var inputs = new Dictionary<string, object> { { "item_price", 100.0 } };
+        context.AddInputProvider(new NamedInputProvider(inputs));
 
         var evaluator = new GraphEvaluator();
-        var results = evaluator.Evaluate(graph, new CalculationContext());
+        var (results, _) = evaluator.Evaluate(graph, context);
 
-        results["Result"].Should().Be(7);
+        results["total"].Should().Be(120.0);
     }
     [Fact]
     public void Should_Throw_When_Input_Missing_And_Used_In_Calculation()
@@ -150,7 +195,7 @@ public class EvaluatorTests
         var graph = compiler.Compile(source);
 
         var evaluator = new GraphEvaluator();
-        var results = evaluator.Evaluate(graph, new CalculationContext());
+        var (results, _) = evaluator.Evaluate(graph, new CalculationContext());
 
         results["x"].Should().Be(42);
     }
@@ -174,7 +219,7 @@ public class EvaluatorTests
         context.AddInputProvider(new NamedInputProvider(inputs));
 
         var evaluator = new GraphEvaluator();
-        var results = evaluator.Evaluate(graph, context);
+        var (results, _) = evaluator.Evaluate(graph, context);
 
         // Assert all values
         results["x"].Should().Be(10);
@@ -211,7 +256,7 @@ public class EvaluatorTests
         context.AddInputProvider(new NamedInputProvider(inputs));
 
         var evaluator = new GraphEvaluator();
-        var results = evaluator.Evaluate(graph, context);
+        var (results, _) = evaluator.Evaluate(graph, context);
 
         // Assert all values - should work exactly like primitive inputs
         results["x"].Should().Be(10.0);

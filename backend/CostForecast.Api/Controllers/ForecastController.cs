@@ -11,29 +11,25 @@ namespace CostForecast.Api.Controllers;
 public class ForecastController : ControllerBase
 {
     [HttpPost("calculate")]
-    public ActionResult<CalculationResponse> Calculate([FromBody] CalculationRequest request)
+    public IActionResult Calculate([FromBody] CalculationRequest request)
     {
-        var response = new CalculationResponse();
-
         try
         {
             var compiler = new DslCompiler();
-            var graph = compiler.Compile(request.Source);
+            var compiledGraph = compiler.Compile(request.Source);
 
             var context = new CalculationContext();
             // Add inputs
-            if (request.Inputs != null)
-            {
-                context.AddInputProvider(new NamedInputProvider(request.Inputs));
-            }
+            context.AddInputProvider(new NamedInputProvider(request.Inputs));
             
             var evaluator = new GraphEvaluator();
-            var results = evaluator.Evaluate(graph, context);
+            // compiled_graph + input_data = evaluated_graph
+            var (results, evaluatedGraph) = evaluator.Evaluate(compiledGraph, context);
 
-            // Serialize the graph structure
-            var graphDto = GraphSerializer.SerializeGraph(graph);
+            // Serialize the evaluated graph (contains runtime nodes like Range items)
+            var graphDto = GraphSerializer.SerializeGraph(evaluatedGraph);
 
-            return Ok(new CalculationResponse
+            return Ok(new
             {
                 Results = results,
                 Graph = graphDto
@@ -41,13 +37,7 @@ public class ForecastController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new CalculationResponse
-            {
-                Errors = new List<CalculationError> 
-                { 
-                    new CalculationError { Message = ex.Message } 
-                }
-            });
+            return BadRequest(new { Error = ex.Message });
         }
     }
 }

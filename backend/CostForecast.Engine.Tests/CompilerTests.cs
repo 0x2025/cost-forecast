@@ -227,4 +227,62 @@ public class CompilerTests
         total.Dependencies.Should().Contain(y);
         total.Dependencies.Should().Contain(inflation);
     }
+
+    [Fact]
+    public void Should_Compile_Range_With_Param()
+    {
+        // TDD Test for bug: Range with Param variable throws "Undefined variable" error
+        // Scenario:
+        // price: Param
+        // discounted = price * 0.9
+        // prices: Input("prices")
+        // results = Range(prices, discounted)
+        // total = SUM(results)
+
+        var source = @"
+price: Param
+discounted = price * 0.9
+prices: Input(""prices"")
+results = Range(prices, discounted)
+total = SUM(results)
+";
+        var compiler = new DslCompiler();
+        var graph = compiler.Compile(source);
+
+        graph.Should().NotBeNull();
+        graph.GetNode("discounted").Should().NotBeNull();
+        graph.GetNode("price").Should().NotBeNull();
+        graph.GetNode("results").Should().NotBeNull();
+        graph.GetNode("total").Should().NotBeNull();
+
+        // Check dependencies
+        var discounted = graph.GetNode("discounted");
+        var price = graph.GetNode("price");
+        var results = graph.GetNode("results");
+        var total = graph.GetNode("total");
+        var prices = graph.GetNode("prices");
+
+        discounted.Dependencies.Should().Contain(price);
+        results.Dependencies.Should().Contain(prices);
+        results.Dependencies.Should().Contain(discounted);
+        total.Dependencies.Should().Contain(results);
+
+        var context = new CalculationContext();
+        var inputs = new Dictionary<string, object> { 
+            { "prices", new[] { 
+                new Dictionary<string, object> { { "price", 100.0 } },
+                new Dictionary<string, object> { { "price", 200.0 } },
+                new Dictionary<string, object> { { "price", 300.0 } }
+            }} 
+        };
+        context.AddInputProvider(new NamedInputProvider(inputs));
+
+        var evaluator = new GraphEvaluator();
+        var (evalResults, _) = evaluator.Evaluate(graph, context);
+
+        // Should not throw "Undefined variable: price"
+        evalResults.Should().ContainKey("total");
+        // Expected: (100*0.9 + 200*0.9 + 300*0.9) = 90 + 180 + 270 = 540
+        evalResults["total"].Should().Be(540.0);
+    }
 }

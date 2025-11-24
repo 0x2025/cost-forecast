@@ -55,12 +55,12 @@ public class GraphSerializationTests
     {
         // Arrange: a = 1, b = a * 2
         var graph = new DependencyGraph();
-        var a = new ConstantNode("a", 1);
-        var b = new FormulaNode("b", values => (int)values["a"] * 2);
-        b.AddDependency(a);
+        var nodeA = new ConstantNode("A", 10.0);
+        var nodeB = new FormulaNode("B", ctx => (double)ctx.Get("A") * 2);
+        nodeB.AddDependency(nodeA);
         
-        graph.AddNode(a);
-        graph.AddNode(b);
+        graph.AddNode(nodeA);
+        graph.AddNode(nodeB);
 
         // Act
         var graphDto = GraphSerializer.SerializeGraph(graph);
@@ -69,15 +69,15 @@ public class GraphSerializationTests
         graphDto.Nodes.Should().HaveCount(2);
         graphDto.Edges.Should().HaveCount(1);
         
-        var nodeA = graphDto.Nodes.First(n => n.Id == "a");
-        nodeA.Type.Should().Be("constant");
+        var nodeADto = graphDto.Nodes.First(n => n.Id == "A");
+        nodeADto.Type.Should().Be("constant");
         
-        var nodeB = graphDto.Nodes.First(n => n.Id == "b");
-        nodeB.Type.Should().Be("formula");
+        var nodeBDto = graphDto.Nodes.First(n => n.Id == "B");
+        nodeBDto.Type.Should().Be("formula");
         
         var edge = graphDto.Edges[0];
-        edge.Source.Should().Be("b");  // b depends on a
-        edge.Target.Should().Be("a");   // so edge goes from b to a
+        edge.Source.Should().Be("A");  // A flows into B
+        edge.Target.Should().Be("B");
     }
 
     [Fact]
@@ -99,12 +99,12 @@ public class GraphSerializationTests
         graphDto.Nodes.Should().HaveCount(3);
         graphDto.Nodes.Select(n => n.Id).Should().Contain(new[] { "x", "y", "total" });
         
-        // y depends on x
-        graphDto.Edges.Should().Contain(e => e.Source == "y" && e.Target == "x");
+        // y depends on x (x -> y)
+        graphDto.Edges.Should().Contain(e => e.Source == "x" && e.Target == "y");
         
-        // total depends on x and y
-        graphDto.Edges.Should().Contain(e => e.Source == "total" && e.Target == "x");
-        graphDto.Edges.Should().Contain(e => e.Source == "total" && e.Target == "y");
+        // total depends on x and y (x -> total, y -> total)
+        graphDto.Edges.Should().Contain(e => e.Source == "x" && e.Target == "total");
+        graphDto.Edges.Should().Contain(e => e.Source == "y" && e.Target == "total");
     }
 
     [Fact]
@@ -156,10 +156,10 @@ public class GraphSerializationTests
         graphDto.Nodes.Select(n => n.Type).Should().Contain("constant");
         graphDto.Nodes.Select(n => n.Type).Should().Contain("formula");
         
-        // result depends on a, b, c
-        graphDto.Edges.Should().Contain(e => e.Source == "result" && e.Target == "a");
-        graphDto.Edges.Should().Contain(e => e.Source == "result" && e.Target == "b");
-        graphDto.Edges.Should().Contain(e => e.Source == "result" && e.Target == "c");
+        // result depends on a, b, c (a -> result, b -> result, c -> result)
+        graphDto.Edges.Should().Contain(e => e.Source == "a" && e.Target == "result");
+        graphDto.Edges.Should().Contain(e => e.Source == "b" && e.Target == "result");
+        graphDto.Edges.Should().Contain(e => e.Source == "c" && e.Target == "result");
     }
 
     [Fact]

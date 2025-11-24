@@ -91,9 +91,9 @@ public class InputNode : GraphNode
 
 public class FormulaNode : GraphNode
 {
-    public Func<Dictionary<string, object>, object> Calculation { get; set; }
+    public Func<IEvaluationContext, object> Calculation { get; set; }
 
-    public FormulaNode(string name, Func<Dictionary<string, object>, object> calculation) : base(name)
+    public FormulaNode(string name, Func<IEvaluationContext, object> calculation) : base(name)
     {
         Calculation = calculation;
     }

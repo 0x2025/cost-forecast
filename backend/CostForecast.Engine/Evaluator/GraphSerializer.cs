@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using CostForecast.Engine.Core;
 
 namespace CostForecast.Engine.Evaluator;
@@ -8,6 +9,9 @@ namespace CostForecast.Engine.Evaluator;
 /// </summary>
 public class GraphSerializer
 {
+    /// <summary>
+    /// Converts a DependencyGraph into a serializable GraphDto.
+    /// </summary>
     /// <summary>
     /// Converts a DependencyGraph into a serializable GraphDto.
     /// </summary>
@@ -42,10 +46,23 @@ public class GraphSerializer
                     { "key", inputNode.Key }
                 };
             }
+            else if (node is RangeNode)
+            {
+                nodeDto.Type = "range";
+            }
+            else if (node is RangeItemNode itemNode)
+            {
+                nodeDto.Type = "range_item";
+                nodeDto.Metadata = new Dictionary<string, object>
+                {
+                    { "index", itemNode.Index },
+                    { "result", itemNode.Result }
+                    // Could also include itemValues if needed
+                };
+            }
             else if (node is FormulaNode)
             {
                 nodeDto.Type = "formula";
-                // Could add expression metadata here if we store it
             }
             else
             {
@@ -63,8 +80,8 @@ public class GraphSerializer
             {
                 graphDto.Edges.Add(new GraphEdgeDto
                 {
-                    Source = node.Name,      // The dependent node
-                    Target = dependency.Name  // The dependency
+                    Source = dependency.Name,
+                    Target = node.Name
                 });
             }
         }

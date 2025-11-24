@@ -4,12 +4,14 @@ using System.Linq;
 using System.Text.Json;
 using CostForecast.Engine.Core;
 using TreeSitter;
+using System.Collections;
 
 namespace CostForecast.Engine.Compiler;
 
 public class AstTranslator
 {
     private readonly string _source;
+    private readonly HashSet<string> _params = new();
 
     public AstTranslator(string source)
     {
@@ -41,6 +43,11 @@ public class AstTranslator
         if (value is long l) return l;
         if (value is float f) return f;
         if (value is decimal dec) return (double)dec;
+        
+        if (value is Array || value is System.Collections.IEnumerable && !(value is string))
+        {
+            throw new ArgumentException("Cannot convert array/collection to number directly. Use aggregation functions like SUM, AVERAGE, etc.");
+        }
         
         // Fallback to Convert for other IConvertible types
         return Convert.ToDouble(value);
@@ -91,6 +98,12 @@ public class AstTranslator
                         var val = text.Substring(1, text.Length - 2);
                         node = new ConstantNode(name, val);
                     }
+                    else if (IsRangeOperation(content))
+                    {
+                        // Create RangeNode placeholder - will be populated in Pass 2
+                        Console.WriteLine($"  Detected Range operation for '{name}'");
+                        node = new RangeNode(name, _ => null, _ => null);
+                    }
                     else
                     {
                         // Placeholder calculation, will be replaced
@@ -102,6 +115,36 @@ public class AstTranslator
                         nodes[name] = node;
                         graph.AddNode(node);
                         assignments[name] = content; // Store the content node for Pass 2
+                    }
+                }
+                else if (stmt.Kind == "declaration")
+                {
+                    var name = GetText(stmt.ChildByFieldName("name"));
+                    var typeDefNode = stmt.ChildByFieldName("type");
+                    var typeKind = typeDefNode.Child(0).Kind;
+                    
+                    Console.WriteLine($"Pass 1: Found declaration '{name}' of type '{typeKind}'");
+                    
+                    GraphNode node;
+                    if (typeKind == "param_def")
+                    {
+                        // Param creates a placeholder formula node
+                        // It will be bound during Range evaluation or other parameterized operations
+                        node = new FormulaNode(name, _ => null);
+                        _params.Add(name);
+                    }
+                    else
+                    {
+                        // For other declarations (Input, Const, Reference), create placeholder formula
+                        // These will be processed in Pass 2
+                        node = new FormulaNode(name, _ => null);
+                    }
+                    
+                    if (!nodes.ContainsKey(name))
+                    {
+                        nodes[name] = node;
+                        graph.AddNode(node);
+                        assignments[name] = typeDefNode; // Store the type_def node for Pass 2
                     }
                 }
             }
@@ -117,8 +160,30 @@ public class AstTranslator
             var contentNode = kvp.Value;
             var graphNode = nodes[name];
 
-            if (graphNode is FormulaNode formulaNode)
+            if (graphNode is RangeNode rangeNode)
             {
+                // Parse Range expression and populate sourceCalculation and targetCalculation
+                var (sourceCalc, targetCalc, deps) = ParseRangeExpression(contentNode, nodes, graph);
+                
+                // Set the calculations
+                rangeNode.SourceCalculation = sourceCalc;
+                rangeNode.TargetCalculation = targetCalc;
+                
+                // Add dependencies
+                foreach (var dep in deps)
+                {
+                    rangeNode.AddDependency(dep);
+                }
+            }
+            else if (graphNode is FormulaNode formulaNode)
+            {
+                // Special handling for Param: it needs to know its own name to look up value in context
+                if (contentNode.Kind == "type_def" && contentNode.Child(0).Kind == "param_def")
+                {
+                    formulaNode.Calculation = ctx => ctx.ContainsKey(name) ? ctx.Get(name) : 0.0;
+                    continue;
+                }
+
                 // Parse the expression to build the calculation delegate and find dependencies
                 var (calc, deps) = ParseExpression(contentNode, nodes, graph);
                 
@@ -133,7 +198,7 @@ public class AstTranslator
         return graph;
     }
 
-    private (Func<Dictionary<string, object>, object>, List<GraphNode>) ParseExpression(Node node, Dictionary<string, GraphNode> scope, DependencyGraph graph)
+    private (Func<IEvaluationContext, object>, List<GraphNode>) ParseExpression(Node node, Dictionary<string, GraphNode> scope, DependencyGraph graph)
     {
         // Recursive parsing
         string kind;
@@ -152,7 +217,21 @@ public class AstTranslator
             var name = GetText(node);
             if (scope.TryGetValue(name, out var dep))
             {
-                return (ctx => ctx[name], new List<GraphNode> { dep });
+                // Check if the dependency is a volatile RangeNode
+                if (dep is RangeNode rangeNode && IsVolatile(rangeNode))
+                {
+                    // Return function that re-evaluates Range in current context
+                    return (ctx => ExecuteRange(rangeNode, ctx), new List<GraphNode> { dep });
+                }
+                // Check if the dependency is "volatile" (depends on a Param)
+                // If so, we must re-evaluate it in the current context (e.g. inside a Range)
+                // rather than using the cached value from the global context.
+                else if (dep is FormulaNode fn && IsVolatile(fn))
+                {
+                    return (ctx => fn.Calculation(ctx), new List<GraphNode> { dep });
+                }
+
+                return (ctx => ctx.Get(name), new List<GraphNode> { dep });
             }
             throw new Exception($"Undefined variable: {name}");
         }
@@ -174,7 +253,7 @@ public class AstTranslator
             deps.AddRange(leftDeps);
             deps.AddRange(rightDeps);
 
-            Func<Dictionary<string, object>, object> calc = ctx =>
+            Func<IEvaluationContext, object> calc = ctx =>
             {
                 var l = ConvertToDouble(leftCalc(ctx));
                 var r = ConvertToDouble(rightCalc(ctx));
@@ -225,24 +304,113 @@ public class AstTranslator
                      var dep = scope[inputNodeName];
                      
                      // Runtime validation wrapper
-                     Func<Dictionary<string, object>, object> inputCalc = ctx => 
-                     {
-                         var val = ctx[inputNodeName];
-                         if (val == null) return 0.0; // Treat missing as 0? Or throw? Let's treat as 0 for now or let Convert handle null (which is 0)
-                         
-                         // If it's a string, check if it's numeric
-                         if (val is string s)
-                         {
-                             if (string.IsNullOrWhiteSpace(s)) return 0.0; // Treat empty as 0
-                             if (!double.TryParse(s, out var d))
-                             {
-                                 throw new Exception($"Input '{key}' has invalid value: '{s}'. Expected a number.");
-                             }
-                             return d;
-                         }
-                         // Use ConvertToDouble to handle JsonElement and other types
-                         return ConvertToDouble(val);
-                     };
+                      Func<IEvaluationContext, object> inputCalc = ctx => 
+                      {
+                          var val = ctx.Get(inputNodeName);
+                          if (val == null) return 0.0;
+                          
+                          // Handle JsonElement (from API) - extract the actual value
+                          if (val is JsonElement jsonElement)
+                          {
+                              if (jsonElement.ValueKind == JsonValueKind.String)
+                              {
+                                  // Extract string from JsonElement and process it
+                                  val = jsonElement.GetString();
+                              }
+                              else
+                              {
+                                  // For non-string JsonElements, use ConvertToDouble
+                                  return ConvertToDouble(val);
+                              }
+                          }
+                          
+                          // If it's a string, check if it's JSON or numeric
+                          if (val is string s)
+                          {
+                              if (string.IsNullOrWhiteSpace(s)) return 0.0;
+                              
+                              // Try to parse as JSON if it starts with [ or {
+                              s = s.Trim();
+                              if (s.StartsWith("[") || s.StartsWith("{"))
+                              {
+                                  try
+                                  {
+                                      // Parse as JSON
+                                      var jsonDoc = JsonDocument.Parse(s);
+                                      var root = jsonDoc.RootElement;
+                                      
+                                      if (root.ValueKind == JsonValueKind.Array)
+                                      {
+                                          // Convert JsonElement array to List of Dictionaries
+                                          var list = new List<object>();
+                                          foreach (var item in root.EnumerateArray())
+                                          {
+                                              if (item.ValueKind == JsonValueKind.Object)
+                                              {
+                                                  var dict = new Dictionary<string, object>();
+                                                  foreach (var prop in item.EnumerateObject())
+                                                  {
+                                                      if (prop.Value.ValueKind == JsonValueKind.Number)
+                                                          dict[prop.Name] = prop.Value.GetDouble();
+                                                      else if (prop.Value.ValueKind == JsonValueKind.String)
+                                                          dict[prop.Name] = prop.Value.GetString();
+                                                      else if (prop.Value.ValueKind == JsonValueKind.True)
+                                                          dict[prop.Name] = true;
+                                                      else if (prop.Value.ValueKind == JsonValueKind.False)
+                                                          dict[prop.Name] = false;
+                                                      else
+                                                          dict[prop.Name] = prop.Value;
+                                                  }
+                                                  list.Add(dict);
+                                              }
+                                              else if (item.ValueKind == JsonValueKind.Number)
+                                              {
+                                                  list.Add(item.GetDouble());
+                                              }
+                                              else
+                                              {
+                                                  list.Add(item);
+                                              }
+                                          }
+                                          return list.ToArray();
+                                      }
+                                      else if (root.ValueKind == JsonValueKind.Object)
+                                      {
+                                          var dict = new Dictionary<string, object>();
+                                          foreach (var prop in root.EnumerateObject())
+                                          {
+                                              if (prop.Value.ValueKind == JsonValueKind.Number)
+                                                  dict[prop.Name] = prop.Value.GetDouble();
+                                              else if (prop.Value.ValueKind == JsonValueKind.String)
+                                                  dict[prop.Name] = prop.Value.GetString();
+                                              else
+                                                  dict[prop.Name] = prop.Value;
+                                          }
+                                          return dict;
+                                      }
+                                  }
+                                  catch (JsonException)
+                                  {
+                                      // If JSON parsing fails, fall through to number parsing
+                                  }
+                              }
+                              
+                              // Try to parse as number
+                              if (!double.TryParse(s, out var d))
+                              {
+                                  throw new Exception($"Input '{key}' has invalid value: '{s}'. Expected a number or valid JSON.");
+                              }
+                              return d;
+                          }
+                          
+                          // Allow arrays to pass through for Range
+                          if (val is Array || (val is System.Collections.IEnumerable && !(val is string)))
+                          {
+                              return val;
+                          }
+
+                          return ConvertToDouble(val);
+                      };
 
                      return (inputCalc, new List<GraphNode> { dep });
                  }
@@ -259,7 +427,7 @@ public class AstTranslator
                  return ParseExpression(argNode, scope, graph);
             }
             
-            var args = new List<(Func<Dictionary<string, object>, object>, List<GraphNode>)>();
+            var args = new List<(Func<IEvaluationContext, object>, List<GraphNode>)>();
             // Iterate named children starting from 1 (0 is function name)
             for(int i=1; i<node.NamedChildCount; i++) {
                 var c = node.NamedChild(i);
@@ -269,15 +437,125 @@ public class AstTranslator
             var deps = new List<GraphNode>();
             foreach(var a in args) deps.AddRange(a.Item2);
             
-            Func<Dictionary<string, object>, object> calc = ctx => {
+            Func<IEvaluationContext, object> calc = ctx => {
                 // Execute args
-                var values = new List<double>();
-                foreach(var a in args) values.Add(ConvertToDouble(a.Item1(ctx)));
+                var rawValues = new List<object>();
+                foreach(var a in args) rawValues.Add(a.Item1(ctx));
                 
-                if (funcName == "SUM") return values.Sum();
-                // ... others
-                return 0;
+                // Flatten arrays for aggregation functions
+                var flatValues = new List<double>();
+                foreach(var val in rawValues)
+                {
+                    if (val is IEnumerable<double> doubles)
+                    {
+                        flatValues.AddRange(doubles);
+                    }
+                    else if (val is IEnumerable<object> objs)
+                    {
+                        foreach(var o in objs) flatValues.Add(ConvertToDouble(o));
+                    }
+                    else if (val is Array arr)
+                    {
+                         foreach(var o in arr) flatValues.Add(ConvertToDouble(o));
+                    }
+                    else
+                    {
+                        flatValues.Add(ConvertToDouble(val));
+                    }
+                }
+                
+                if (funcName == "SUM") return flatValues.Sum();
+                if (funcName == "AVERAGE") return flatValues.Count > 0 ? flatValues.Average() : 0.0;
+                if (funcName == "MAX") return flatValues.Count > 0 ? flatValues.Max() : 0.0;
+                if (funcName == "MIN") return flatValues.Count > 0 ? flatValues.Min() : 0.0;
+                
+                if (funcName == "IF")
+                {
+                    // IF(condition, trueVal, falseVal)
+                    // values[0] is condition (1.0 is true, 0.0 is false)
+                    if (rawValues.Count < 3) return 0.0;
+                    
+                    var condition = ConvertToDouble(rawValues[0]);
+                    return condition != 0.0 ? ConvertToDouble(rawValues[1]) : ConvertToDouble(rawValues[2]);
+                }
+                
+                return 0.0;
             };
+            
+            if (funcName == "Range")
+            {
+                 if (node.NamedChildCount < 3) throw new Exception("Range requires 2 arguments: source and target.");
+                 var sourceNode = node.NamedChild(1);
+                 var targetNode = node.NamedChild(2);
+                 
+                 var (sourceCalc, sourceDeps) = ParseExpression(sourceNode, scope, graph);
+                 // We parse the target expression to get its calculation logic.
+                 // Crucially, we do NOT execute it yet. We will execute it repeatedly inside the loop.
+                 var (targetCalc, targetDeps) = ParseExpression(targetNode, scope, graph);
+                 
+                 Func<IEvaluationContext, object> rangeCalc = ctx =>
+                 {
+                     var sourceVal = sourceCalc(ctx);
+                     
+                     var list = new List<double>();
+                     
+                     IEnumerable<object> items;
+                     if (sourceVal is IEnumerable<object> e) items = e;
+                     else if (sourceVal is System.Collections.IEnumerable en) items = en.Cast<object>();
+                     else items = new[] { sourceVal }; // Single item treated as list
+                     
+                     foreach (var item in items)
+                     {
+                         // Create Child Context
+                         var childCtx = new ChildEvaluationContext(ctx);
+                         
+                         // Populate context from item properties
+                         if (item is IDictionary<string, object> dict)
+                         {
+                             foreach (var kvp in dict)
+                             {
+                                 childCtx.Set(kvp.Key, kvp.Value);
+                             }
+                         }
+                         else if (item is JsonElement jsonElement && jsonElement.ValueKind == JsonValueKind.Object)
+                         {
+                             foreach (var prop in jsonElement.EnumerateObject())
+                             {
+                                 // We might need to convert JsonElement values to appropriate types
+                                 // For now, let's keep them as is or convert numbers
+                                 if (prop.Value.ValueKind == JsonValueKind.Number)
+                                     childCtx.Set(prop.Name, prop.Value.GetDouble());
+                                 else if (prop.Value.ValueKind == JsonValueKind.String)
+                                     childCtx.Set(prop.Name, prop.Value.GetString());
+                                 else
+                                     childCtx.Set(prop.Name, prop.Value);
+                             }
+                         }
+                         else
+                         {
+                             // Fallback for simple values (legacy support or single-param implicit binding?)
+                             // If the user insists on "named object", maybe we shouldn't support this.
+                             // But for backward compatibility with existing tests (if any rely on it), 
+                             // we might need a strategy. However, the user explicitly said "no implicit binding".
+                             // Let's throw or ignore. For now, let's try to be helpful and see if we can 
+                             // support the "simple array" case by binding to a default param if there's only one?
+                             // No, let's stick to the "Object Context" strict mode for now as requested.
+                             // Actually, existing tests use simple arrays. We should probably break them 
+                             // and fix them to use objects, to be consistent.
+                         }
+                         
+                         // Evaluate target expression in this new context
+                         var result = ConvertToDouble(targetCalc(childCtx));
+                         list.Add(result);
+                     }
+                     
+                     return list.ToArray();
+                 };
+                 
+                 var allDeps = new List<GraphNode>(sourceDeps);
+                 allDeps.AddRange(targetDeps);
+                 return (rangeCalc, allDeps);
+            }
             
             return (calc, deps);
         }
@@ -304,7 +582,7 @@ public class AstTranslator
             var op = GetText(opNode);
             var (calc, deps) = ParseExpression(exprNode, scope, graph);
             
-            Func<Dictionary<string, object>, object> newCalc = ctx =>
+            Func<IEvaluationContext, object> newCalc = ctx =>
             {
                 var val = ConvertToDouble(calc(ctx));
                 return op switch
@@ -333,11 +611,320 @@ public class AstTranslator
             // Console.WriteLine($"Expression unwrapped. Child deps: {d.Count}");
             return (c, d);
         }
+        else if (kind == "type_def")
+        {
+            // Handle declarations like price: Param, value: Input("key"), etc.
+            var typeKind = node.Child(0).Kind;
+            
+            if (typeKind == "param_def")
+            {
+                // Param is a placeholder that gets bound during Range operations
+                // For now, it should just return 0 or throw if evaluated outside of Range context
+                // In the context of Range, this will be replaced with actual values
+                return (_ => 0.0, new List<GraphNode>());
+            }
+            else if (typeKind == "input_def")
+            {
+                // input_def has a source field
+                var defNode = node.Child(0);
+                var sourceNode = defNode.ChildByFieldName("source");
+                
+                if (sourceNode.Kind == "string")
+                {
+                    var text = GetText(sourceNode);
+                    var key = text.Substring(1, text.Length - 2);
+                    var inputNodeName = $"$Input_{key}";
+                    
+                    if (!scope.ContainsKey(inputNodeName))
+                    {
+                        var inputNode = new InputNode(inputNodeName, key);
+                        scope[inputNodeName] = inputNode;
+                        graph.AddNode(inputNode);
+                    }
+                    var dep = scope[inputNodeName];
+                    
+                    Func<IEvaluationContext, object> inputCalc = ctx => 
+                    {
+                        var val = ctx.Get(inputNodeName);
+                        if (val == null) return 0.0;
+                        
+                        // Handle JsonElement (from API) - extract the actual value
+                        if (val is JsonElement jsonElement)
+                        {
+                            if (jsonElement.ValueKind == JsonValueKind.String)
+                            {
+                                // Extract string from JsonElement and process it
+                                val = jsonElement.GetString();
+                            }
+                            else
+                            {
+                                // For non-string JsonElements, use ConvertToDouble
+                                return ConvertToDouble(val);
+                            }
+                        }
+                        
+                        // If it's a string, check if it's JSON or numeric
+                        if (val is string s)
+                        {
+                            if (string.IsNullOrWhiteSpace(s)) return 0.0;
+                            
+                            // Try to parse as JSON if it starts with [ or {
+                            s = s.Trim();
+                            if (s.StartsWith("[") || s.StartsWith("{"))
+                            {
+                                try
+                                {
+                                    // Parse as JSON
+                                    var jsonDoc = JsonDocument.Parse(s);
+                                    var root = jsonDoc.RootElement;
+                                    
+                                    if (root.ValueKind == JsonValueKind.Array)
+                                    {
+                                        // Convert JsonElement array to List of Dictionaries
+                                        var list = new List<object>();
+                                        foreach (var item in root.EnumerateArray())
+                                        {
+                                            if (item.ValueKind == JsonValueKind.Object)
+                                            {
+                                                var dict = new Dictionary<string, object>();
+                                                foreach (var prop in item.EnumerateObject())
+                                                {
+                                                    if (prop.Value.ValueKind == JsonValueKind.Number)
+                                                        dict[prop.Name] = prop.Value.GetDouble();
+                                                    else if (prop.Value.ValueKind == JsonValueKind.String)
+                                                        dict[prop.Name] = prop.Value.GetString();
+                                                    else if (prop.Value.ValueKind == JsonValueKind.True)
+                                                        dict[prop.Name] = true;
+                                                    else if (prop.Value.ValueKind == JsonValueKind.False)
+                                                        dict[prop.Name] = false;
+                                                    else
+                                                        dict[prop.Name] = prop.Value;
+                                                }
+                                                list.Add(dict);
+                                            }
+                                            else if (item.ValueKind == JsonValueKind.Number)
+                                            {
+                                                list.Add(item.GetDouble());
+                                            }
+                                            else
+                                            {
+                                                list.Add(item);
+                                            }
+                                        }
+                                        return list.ToArray();
+                                    }
+                                    else if (root.ValueKind == JsonValueKind.Object)
+                                    {
+                                        var dict = new Dictionary<string, object>();
+                                        foreach (var prop in root.EnumerateObject())
+                                        {
+                                            if (prop.Value.ValueKind == JsonValueKind.Number)
+                                                dict[prop.Name] = prop.Value.GetDouble();
+                                            else if (prop.Value.ValueKind == JsonValueKind.String)
+                                                dict[prop.Name] = prop.Value.GetString();
+                                            else
+                                                dict[prop.Name] = prop.Value;
+                                        }
+                                        return dict;
+                                    }
+                                }
+                                catch (JsonException)
+                                {
+                                    // If JSON parsing fails, fall through to number parsing
+                                }
+                            }
+                            
+                            // Try to parse as number
+                            if (!double.TryParse(s, out var d))
+                            {
+                                throw new Exception($"Input '{key}' has invalid value: '{s}'. Expected a number or valid JSON.");
+                            }
+                            return d;
+                        }
+                        
+                        // Allow arrays to pass through for Range
+                        if (val is Array || (val is System.Collections.IEnumerable && !(val is string)))
+                        {
+                            return val;
+                        }
+
+                        return ConvertToDouble(val);
+                    };
+
+                    return (inputCalc, new List<GraphNode> { dep });
+                }
+                else if (sourceNode.Kind == "identifier")
+                {
+                    // Grid input like Input(A1)
+                    var cellRef = GetText(sourceNode);
+                    var inputNodeName = $"$Input_{cellRef}";
+                    
+                    if (!scope.ContainsKey(inputNodeName))
+                    {
+                        var inputNode = new InputNode(inputNodeName, cellRef);
+                        scope[inputNodeName] = inputNode;
+                        graph.AddNode(inputNode);
+                    }
+                    var dep = scope[inputNodeName];
+                    
+                    return (ctx => ConvertToDouble(ctx.Get(inputNodeName)), new List<GraphNode> { dep });
+                }
+            }
+            else if (typeKind == "const_def")
+            {
+                // const_def has a value field
+                var defNode = node.Child(0);
+                var valueNode = defNode.ChildByFieldName("value");
+                return ParseExpression(valueNode, scope, graph);
+            }
+            else if (typeKind == "reference_def")
+            {
+                // reference_def has a target field
+                var defNode = node.Child(0);
+                var targetNode = defNode.ChildByFieldName("target");
+                var targetName = GetText(targetNode);
+                
+                if (scope.TryGetValue(targetName, out var dep))
+                {
+                    return (ctx => ctx.Get(targetName), new List<GraphNode> { dep });
+                }
+                throw new Exception($"Reference to undefined variable: {targetName}");
+            }
+            
+            throw new NotSupportedException($"Unsupported type_def: {typeKind}");
+        }
         else
         {
             throw new NotSupportedException($"Unsupported AST node encountered: {kind}");
         }
         
         return (_ => 0, new List<GraphNode>());
+    }
+
+    private bool IsRangeOperation(Node node)
+    {
+        // Unwrap expression wrappers
+        while (node.Kind == "expression")
+        {
+            if (node.NamedChildCount < 1) return false;
+            node = node.NamedChild(0);
+        }
+
+        // Check if it's a function call to "Range"
+        if (node.Kind == "function_call" && node.NamedChildCount >= 1)
+        {
+            var funcNode = node.NamedChild(0);
+            var funcName = GetText(funcNode).Trim();
+            return funcName == "Range";
+        }
+
+        return false;
+    }
+
+    private (Func<IEvaluationContext, object>, Func<IEvaluationContext, object>, List<GraphNode>) ParseRangeExpression(
+        Node node, 
+        Dictionary<string, GraphNode> scope, 
+        DependencyGraph graph)
+    {
+        // Unwrap expression wrappers
+        while (node.Kind == "expression")
+        {
+            if (node.NamedChildCount < 1) throw new Exception("Invalid expression node");
+            node = node.NamedChild(0);
+        }
+
+        if (node.Kind != "function_call")
+        {
+            throw new Exception($"Expected function_call for Range, got {node.Kind}");
+        }
+
+        if (node.NamedChildCount < 3)
+        {
+            throw new Exception("Range requires 2 arguments: source and target.");
+        }
+
+        // Parse source and target expressions
+        var sourceNode = node.NamedChild(1);
+        var targetNode = node.NamedChild(2);
+
+        var (sourceCalc, sourceDeps) = ParseExpression(sourceNode, scope, graph);
+        var (targetCalc, targetDeps) = ParseExpression(targetNode, scope, graph);
+
+        var allDeps = new List<GraphNode>(sourceDeps);
+        allDeps.AddRange(targetDeps);
+
+        return (sourceCalc, targetCalc, allDeps);
+    }
+
+    private object ExecuteRange(RangeNode rangeNode, IEvaluationContext ctx)
+    {
+        // Execute Range iteration in the given context (for lazy/volatile evaluation)
+        var sourceVal = rangeNode.SourceCalculation(ctx);
+        var resultsList = new List<double>();
+        
+        // Convert source to enumerable
+        IEnumerable<object> items;
+        if (sourceVal is IEnumerable<object> e) items = e;
+        else if (sourceVal is System.Collections.IEnumerable en) items = en.Cast<object>();
+        else items = new[] { sourceVal };
+        
+        foreach (var item in items)
+        {
+            var childCtx = new ChildEvaluationContext(ctx);
+            
+            // Populate context from item properties
+            if (item is IDictionary<string, object> dict)
+            {
+                foreach (var kvp in dict)
+                {
+                    childCtx.Set(kvp.Key, kvp.Value);
+                }
+            }
+            else if (item is JsonElement jsonElement && jsonElement.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in jsonElement.EnumerateObject())
+                {
+                    object val;
+                    if (prop.Value.ValueKind == JsonValueKind.Number)
+                        val = prop.Value.GetDouble();
+                    else if (prop.Value.ValueKind == JsonValueKind.String)
+                        val = prop.Value.GetString();
+                    else
+                        val = prop.Value;
+                        
+                    childCtx.Set(prop.Name, val);
+                }
+            }
+            
+            // Evaluate target expression for this item
+            var resultObj = rangeNode.TargetCalculation(childCtx);
+            resultsList.Add(ConvertToDouble(resultObj));
+        }
+        
+        return resultsList.ToArray();
+    }
+
+    private bool IsVolatile(GraphNode node)
+    {
+        // A node is volatile if it is a Param or depends on a Param
+        if (_params.Contains(node.Name)) return true;
+        
+        // RangeNodes that depend on params are volatile
+        if (node is RangeNode) 
+        {
+            // Check if ANY dependency is volatile
+            foreach (var dep in node.Dependencies)
+            {
+                if (IsVolatile(dep)) return true;
+            }
+        }
+        
+        // Traverse dependencies recursively to check if any depend on a Param
+        // Since the graph is a DAG (checked during sort), recursion is safe
+        foreach (var dep in node.Dependencies)
+        {
+            if (IsVolatile(dep)) return true;
+        }
+        return false;
     }
 }
