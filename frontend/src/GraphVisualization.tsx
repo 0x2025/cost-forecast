@@ -10,8 +10,6 @@ import {
     useEdgesState,
     MarkerType,
     ConnectionLineType,
-    Handle,
-    Position,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { GraphData } from './api';
@@ -25,8 +23,6 @@ interface GraphVisualizationProps {
 const CustomNode = ({ data }: { data: any }) => {
     return (
         <div className="h-full w-full flex items-center justify-center relative group">
-            <Handle type="target" position={Position.Left} className="!bg-gray-400" />
-
             <div className="flex flex-col items-center">
                 <div className="text-xs font-bold mb-1 opacity-50 uppercase tracking-wider">
                     {data.type}
@@ -38,7 +34,6 @@ const CustomNode = ({ data }: { data: any }) => {
                     )}
                 </div>
             </div>
-            <Handle type="source" position={Position.Right} className="!bg-gray-400" />
         </div>
     );
 };

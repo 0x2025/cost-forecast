@@ -30,7 +30,8 @@ public class GraphEvaluator
             }
             else if (node is InputNode input)
             {
-                results[node.Name] = context.GetInputValue(input.Key);
+                var rawValue = context.GetInputValue(input.Key);
+                results[node.Name] = ProcessInput(input.Key, rawValue);
             }
             else if (node is ParamNode paramNode)
             {
@@ -241,5 +242,147 @@ public class GraphEvaluator
         }
         
         return false;
+    }
+
+    private object ProcessInput(string key, object val)
+    {
+        if (val == null) return 0.0;
+        
+        // Handle JsonElement (from API) - extract the actual value
+        if (val is System.Text.Json.JsonElement jsonElement)
+        {
+            if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                // Extract string from JsonElement and process it
+                val = jsonElement.GetString();
+            }
+            else
+            {
+                // For non-string JsonElements, use ConvertToDouble
+                return ConvertToDouble(val);
+            }
+        }
+        
+        // If it's a string, check if it's JSON or numeric
+        if (val is string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return 0.0;
+            
+            // Try to parse as JSON if it starts with [ or {
+            s = s.Trim();
+            if (s.StartsWith("[") || s.StartsWith("{"))
+            {
+                try
+                {
+                    // Parse as JSON
+                    var jsonDoc = System.Text.Json.JsonDocument.Parse(s);
+                    var root = jsonDoc.RootElement;
+                    
+                    if (root.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    {
+                        // Convert JsonElement array to List of Dictionaries
+                        var list = new List<object>();
+                        foreach (var item in root.EnumerateArray())
+                        {
+                            if (item.ValueKind == System.Text.Json.JsonValueKind.Object)
+                            {
+                                var dict = new Dictionary<string, object>();
+                                foreach (var prop in item.EnumerateObject())
+                                {
+                                    if (prop.Value.ValueKind == System.Text.Json.JsonValueKind.Number)
+                                        dict[prop.Name] = prop.Value.GetDouble();
+                                    else if (prop.Value.ValueKind == System.Text.Json.JsonValueKind.String)
+                                        dict[prop.Name] = prop.Value.GetString();
+                                    else if (prop.Value.ValueKind == System.Text.Json.JsonValueKind.True)
+                                        dict[prop.Name] = true;
+                                    else if (prop.Value.ValueKind == System.Text.Json.JsonValueKind.False)
+                                        dict[prop.Name] = false;
+                                    else
+                                        dict[prop.Name] = prop.Value;
+                                }
+                                list.Add(dict);
+                            }
+                            else if (item.ValueKind == System.Text.Json.JsonValueKind.Number)
+                            {
+                                list.Add(item.GetDouble());
+                            }
+                            else
+                            {
+                                list.Add(item);
+                            }
+                        }
+                        return list.ToArray();
+                    }
+                    else if (root.ValueKind == System.Text.Json.JsonValueKind.Object)
+                    {
+                        var dict = new Dictionary<string, object>();
+                        foreach (var prop in root.EnumerateObject())
+                        {
+                            if (prop.Value.ValueKind == System.Text.Json.JsonValueKind.Number)
+                                dict[prop.Name] = prop.Value.GetDouble();
+                            else if (prop.Value.ValueKind == System.Text.Json.JsonValueKind.String)
+                                dict[prop.Name] = prop.Value.GetString();
+                            else
+                                dict[prop.Name] = prop.Value;
+                        }
+                        return dict;
+                    }
+                }
+                catch (System.Text.Json.JsonException)
+                {
+                    // If JSON parsing fails, fall through to number parsing
+                }
+            }
+            
+            // Try to parse as number
+            if (!double.TryParse(s, out var d))
+            {
+                throw new System.Exception($"Input '{key}' has invalid value: '{s}'. Expected a number or valid JSON.");
+            }
+            return d;
+        }
+        
+        // Allow arrays to pass through for Range
+        if (val is System.Array || (val is System.Collections.IEnumerable && !(val is string)))
+        {
+            return val;
+        }
+
+        return ConvertToDouble(val);
+    }
+
+    private static double ConvertToDouble(object value)
+    {
+        if (value == null)
+            return 0.0;
+
+        // Handle JsonElement from API deserialization
+        if (value is System.Text.Json.JsonElement jsonElement)
+        {
+            return jsonElement.ValueKind switch
+            {
+                System.Text.Json.JsonValueKind.Number => jsonElement.GetDouble(),
+                System.Text.Json.JsonValueKind.String => double.TryParse(jsonElement.GetString(), out var d) ? d : throw new System.Exception($"Cannot convert string '{jsonElement.GetString()}' to number"),
+                System.Text.Json.JsonValueKind.True => 1.0,
+                System.Text.Json.JsonValueKind.False => 0.0,
+                System.Text.Json.JsonValueKind.Null => 0.0,
+                _ => throw new System.Exception($"Cannot convert JsonElement of type {jsonElement.ValueKind} to number")
+            };
+        }
+
+        // Handle primitive types from tests
+        if (value is double dbl) return dbl;
+        if (value is int i) return i;
+        if (value is long l) return l;
+        if (value is float f) return f;
+        if (value is decimal dec) return (double)dec;
+        
+        if (value is System.Array || value is System.Collections.IEnumerable && !(value is string))
+        {
+            throw new System.ArgumentException("Cannot convert array/collection to number directly. Use aggregation functions like SUM, AVERAGE, etc.");
+        }
+        
+        // Fallback to Convert for other IConvertible types
+        return System.Convert.ToDouble(value);
     }
 }

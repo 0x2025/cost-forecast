@@ -133,9 +133,27 @@ public class AstTranslator
                         node = new ParamNode(name, _ => null);
                         _params.Add(name);
                     }
+                    else if (typeKind == "input_def")
+                    {
+                         // Parse the input definition to get the key
+                         var defNode = typeDefNode.Child(0);
+                         var sourceNode = defNode.ChildByFieldName("source");
+                         string key = "";
+                         if (sourceNode.Kind == "string")
+                         {
+                             var text = GetText(sourceNode);
+                             key = text.Substring(1, text.Length - 2);
+                         }
+                         else if (sourceNode.Kind == "identifier")
+                         {
+                             key = GetText(sourceNode);
+                         }
+                         
+                         node = new InputNode(name, key);
+                    }
                     else
                     {
-                        // For other declarations (Input, Const, Reference), create placeholder formula
+                        // For other declarations (Const, Reference), create placeholder formula
                         // These will be processed in Pass 2
                         node = new FormulaNode(name, _ => null);
                     }
@@ -182,6 +200,12 @@ public class AstTranslator
             {
                 // Param nodes look up their value from the context
                 paramNode.Calculation = ctx => ctx.ContainsKey(name) ? ctx.Get(name) : 0.0;
+            }
+
+            else if (graphNode is InputNode)
+            {
+                // Input nodes are already fully defined in Pass 1
+                continue;
             }
             else if (graphNode is FormulaNode formulaNode)
             {
@@ -307,113 +331,12 @@ public class AstTranslator
                      }
                      var dep = scope[inputNodeName];
                      
-                     // Runtime validation wrapper
-                      Func<IEvaluationContext, object> inputCalc = ctx => 
-                      {
-                          var val = ctx.Get(inputNodeName);
-                          if (val == null) return 0.0;
-                          
-                          // Handle JsonElement (from API) - extract the actual value
-                          if (val is JsonElement jsonElement)
-                          {
-                              if (jsonElement.ValueKind == JsonValueKind.String)
-                              {
-                                  // Extract string from JsonElement and process it
-                                  val = jsonElement.GetString();
-                              }
-                              else
-                              {
-                                  // For non-string JsonElements, use ConvertToDouble
-                                  return ConvertToDouble(val);
-                              }
-                          }
-                          
-                          // If it's a string, check if it's JSON or numeric
-                          if (val is string s)
-                          {
-                              if (string.IsNullOrWhiteSpace(s)) return 0.0;
-                              
-                              // Try to parse as JSON if it starts with [ or {
-                              s = s.Trim();
-                              if (s.StartsWith("[") || s.StartsWith("{"))
-                              {
-                                  try
-                                  {
-                                      // Parse as JSON
-                                      var jsonDoc = JsonDocument.Parse(s);
-                                      var root = jsonDoc.RootElement;
-                                      
-                                      if (root.ValueKind == JsonValueKind.Array)
-                                      {
-                                          // Convert JsonElement array to List of Dictionaries
-                                          var list = new List<object>();
-                                          foreach (var item in root.EnumerateArray())
-                                          {
-                                              if (item.ValueKind == JsonValueKind.Object)
-                                              {
-                                                  var dict = new Dictionary<string, object>();
-                                                  foreach (var prop in item.EnumerateObject())
-                                                  {
-                                                      if (prop.Value.ValueKind == JsonValueKind.Number)
-                                                          dict[prop.Name] = prop.Value.GetDouble();
-                                                      else if (prop.Value.ValueKind == JsonValueKind.String)
-                                                          dict[prop.Name] = prop.Value.GetString();
-                                                      else if (prop.Value.ValueKind == JsonValueKind.True)
-                                                          dict[prop.Name] = true;
-                                                      else if (prop.Value.ValueKind == JsonValueKind.False)
-                                                          dict[prop.Name] = false;
-                                                      else
-                                                          dict[prop.Name] = prop.Value;
-                                                  }
-                                                  list.Add(dict);
-                                              }
-                                              else if (item.ValueKind == JsonValueKind.Number)
-                                              {
-                                                  list.Add(item.GetDouble());
-                                              }
-                                              else
-                                              {
-                                                  list.Add(item);
-                                              }
-                                          }
-                                          return list.ToArray();
-                                      }
-                                      else if (root.ValueKind == JsonValueKind.Object)
-                                      {
-                                          var dict = new Dictionary<string, object>();
-                                          foreach (var prop in root.EnumerateObject())
-                                          {
-                                              if (prop.Value.ValueKind == JsonValueKind.Number)
-                                                  dict[prop.Name] = prop.Value.GetDouble();
-                                              else if (prop.Value.ValueKind == JsonValueKind.String)
-                                                  dict[prop.Name] = prop.Value.GetString();
-                                              else
-                                                  dict[prop.Name] = prop.Value;
-                                          }
-                                          return dict;
-                                      }
-                                  }
-                                  catch (JsonException)
-                                  {
-                                      // If JSON parsing fails, fall through to number parsing
-                                  }
-                              }
-                              
-                              // Try to parse as number
-                              if (!double.TryParse(s, out var d))
-                              {
-                                  throw new Exception($"Input '{key}' has invalid value: '{s}'. Expected a number or valid JSON.");
-                              }
-                              return d;
-                          }
-                          
-                          // Allow arrays to pass through for Range
-                          if (val is Array || (val is System.Collections.IEnumerable && !(val is string)))
-                          {
-                              return val;
-                          }
 
-                          return ConvertToDouble(val);
+                     
+                     // Runtime validation wrapper - simplified as GraphEvaluator handles processing now
+                      System.Func<IEvaluationContext, object> inputCalc = ctx => 
+                      {
+                          return ctx.Get(inputNodeName);
                       };
 
                      return (inputCalc, new List<GraphNode> { dep });
@@ -771,7 +694,7 @@ public class AstTranslator
                     }
                     var dep = scope[inputNodeName];
                     
-                    return (ctx => ConvertToDouble(ctx.Get(inputNodeName)), new List<GraphNode> { dep });
+                    return (ctx => ctx.Get(inputNodeName), new List<GraphNode> { dep });
                 }
             }
             else if (typeKind == "const_def")
