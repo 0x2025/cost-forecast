@@ -32,6 +32,12 @@ public class GraphEvaluator
             {
                 results[node.Name] = context.GetInputValue(input.Key);
             }
+            else if (node is ParamNode paramNode)
+            {
+                // Param nodes are evaluated like FormulaNodes
+                var contextWrapper = new RootEvaluationContext(results);
+                results[node.Name] = paramNode.Calculation(contextWrapper);
+            }
             else if (node is RangeNode rangeNode)
             {
                 // Execute Range iteration and ADD item nodes to evaluated graph
@@ -39,6 +45,7 @@ public class GraphEvaluator
                 var sourceVal = rangeNode.SourceCalculation(contextWrapper);
                 
                 var resultsList = new List<double>();
+                var itemNodes = new List<GraphNode>();
                 
                 // Convert source to enumerable
                 IEnumerable<object> items;
@@ -99,26 +106,28 @@ public class GraphEvaluator
 
                     var itemNode = new RangeItemNode(itemNodeName, index, resultValue, currentItemValues);
                     evaluatedGraph.AddNode(itemNode);
+                    itemNodes.Add(itemNode);
                     
-                    // Add dependency: RangeNode depends on RangeItemNode
-                    // This creates the visual link: RangeItemNode -> RangeNode
-                    rangeNode.Dependencies.Add(itemNode);
-                    
-                    // Add edge from source to item
-                    var sourceDep = rangeNode.Dependencies.FirstOrDefault();
-                    if (sourceDep != null)
-                    {
-                        itemNode.Dependencies.Add(sourceDep);
-                    }
-                    
+                    // Add edges from item to params
                     // Add edges from item to params
                     foreach (var paramName in paramDeps)
                     {
-                        var paramNode = evaluatedGraph.GetNode(paramName);
-                        if (paramNode != null)
+                        // Instead of linking to the global Param node, we create a specific node for this item's parameter
+                        // This ensures the graph shows the breakdown per item (e.g., qty(1), price(1))
+                        var paramValue = childCtx.Get(paramName);
+                        var paramNodeName = $"{paramName}({index + 1})";
+                        
+                        // Create a ConstantNode to represent this specific value
+                        // We use ConstantNode because for this specific item iteration, it is a fixed value
+                        var itemParamNode = new ConstantNode(paramNodeName, paramValue);
+                        
+                        // Add to graph if not already present (though names should be unique per item)
+                        if (evaluatedGraph.GetNode(paramNodeName) == null)
                         {
-                            itemNode.Dependencies.Add(paramNode);
+                            evaluatedGraph.AddNode(itemParamNode);
                         }
+                        
+                        itemNode.Dependencies.Add(itemParamNode);
                     }
                     
                     index++;
@@ -126,6 +135,16 @@ public class GraphEvaluator
                 
                 // Store result array
                 results[node.Name] = resultsList.ToArray();
+                
+                // Clear original dependencies (source and target template)
+                // We only want to show the breakdown (item nodes) in the evaluated graph
+                rangeNode.Dependencies.Clear();
+                
+                // Re-add item nodes as dependencies
+                foreach (var itemNode in itemNodes)
+                {
+                    rangeNode.Dependencies.Add(itemNode);
+                }
             }
             else if (node is FormulaNode formula)
             {
@@ -136,6 +155,91 @@ public class GraphEvaluator
             }
         }
 
+        PruneGraph(evaluatedGraph);
+
         return (results, evaluatedGraph);
+    }
+
+    private void PruneGraph(DependencyGraph graph)
+    {
+        var allNodes = graph.GetAllNodes().ToList();
+        
+        // Find roots: nodes that are likely final outputs
+        // These are nodes that no other node depends on AND are not InputNode or "system" nodes
+        var dependents = new Dictionary<GraphNode, List<GraphNode>>();
+        
+        // Initialize dependents list
+        foreach (var node in allNodes)
+        {
+            dependents[node] = new List<GraphNode>();
+        }
+
+        // Build dependents map (Who depends on me?)
+        foreach (var node in allNodes)
+        {
+            foreach (var dep in node.Dependencies)
+            {
+                if (dependents.ContainsKey(dep))
+                {
+                    dependents[dep].Add(node);
+                }
+            }
+        }
+
+        // Find Roots: nodes with no dependents, excluding InputNodes, system nodes, and Param declarations
+        // Param declarations (qty, price) are templates and should not be considered roots
+        var roots = allNodes.Where(n => 
+            dependents[n].Count == 0 &&
+            !(n is InputNode) &&
+            !(n is ParamNode) &&
+            !n.Name.StartsWith("$") &&
+            !(n is FormulaNode fn && fn.Calculation != null && IsParamNode(n, allNodes))
+        ).ToList();
+
+        // Traverse from roots to find all reachable nodes
+        var reachable = new HashSet<GraphNode>();
+        var queue = new Queue<GraphNode>(roots);
+        
+        while (queue.Count > 0)
+        {
+            var node = queue.Dequeue();
+            if (reachable.Contains(node)) continue;
+            
+            reachable.Add(node);
+            
+            foreach (var dep in node.Dependencies)
+            {
+                queue.Enqueue(dep);
+            }
+        }
+
+        // Remove unreachable nodes
+        foreach (var node in allNodes)
+        {
+            if (!reachable.Contains(node))
+            {
+                graph.RemoveNode(node.Name);
+            }
+        }
+    }
+
+    private bool IsParamNode(GraphNode node, List<GraphNode> allNodes)
+    {
+        // A node is considered a "template" node if it has been expanded or is an intermediate wrapper
+        
+        // 1. Param nodes that have been expanded (qty -> qty(1), qty(2))
+        if (allNodes.Any(n => n.Name.StartsWith($"{node.Name}(") && n is ConstantNode))
+        {
+            return true;
+        }
+        
+        // 2. Input wrapper nodes (e.g., "items" which wraps "$Input_items")
+        // These are FormulaNodes that only depend on a single InputNode
+        if (node is FormulaNode && node.Dependencies.Count == 1 && node.Dependencies[0] is InputNode)
+        {
+            return true;
+        }
+        
+        return false;
     }
 }

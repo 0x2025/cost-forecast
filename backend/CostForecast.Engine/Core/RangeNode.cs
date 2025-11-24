@@ -18,14 +18,18 @@ public class RangeNode : GraphNode
     /// </summary>
     public Func<IEvaluationContext, object> TargetCalculation { get; set; }
 
+    public string? Expression { get; set; }
+
     public RangeNode(
         string name, 
         Func<IEvaluationContext, object> sourceCalculation,
-        Func<IEvaluationContext, object> targetCalculation) 
+        Func<IEvaluationContext, object> targetCalculation,
+        string? expression = null) 
         : base(name)
     {
         SourceCalculation = sourceCalculation;
         TargetCalculation = targetCalculation;
+        Expression = expression;
     }
 
     public void AddDependency(GraphNode node)

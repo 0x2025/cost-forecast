@@ -27,7 +27,8 @@ public class ForecastController : ControllerBase
             var (results, evaluatedGraph) = evaluator.Evaluate(compiledGraph, context);
 
             // Serialize the evaluated graph (contains runtime nodes like Range items)
-            var graphDto = GraphSerializer.SerializeGraph(evaluatedGraph);
+            // Pass results to include evaluated values in display names
+            var graphDto = GraphSerializer.SerializeGraph(evaluatedGraph, results);
 
             return Ok(new
             {

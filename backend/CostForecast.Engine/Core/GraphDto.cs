@@ -32,6 +32,12 @@ public class GraphNodeDto
     public string Label { get; set; } = string.Empty;
     
     /// <summary>
+    /// Rich display name showing node name, expression, and evaluated value.
+    /// Example: "total = 65" or "qty(1) = 2" or "range = Range(items, ...)"
+    /// </summary>
+    public string? DisplayName { get; set; }
+    
+    /// <summary>
     /// Additional metadata specific to the node type.
     /// - For constants: { "value": <value> }
     /// - For inputs: { "key": <inputKey> }

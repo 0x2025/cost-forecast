@@ -128,9 +128,9 @@ public class AstTranslator
                     GraphNode node;
                     if (typeKind == "param_def")
                     {
-                        // Param creates a placeholder formula node
+                        // Param creates a ParamNode
                         // It will be bound during Range evaluation or other parameterized operations
-                        node = new FormulaNode(name, _ => null);
+                        node = new ParamNode(name, _ => null);
                         _params.Add(name);
                     }
                     else
@@ -162,6 +162,9 @@ public class AstTranslator
 
             if (graphNode is RangeNode rangeNode)
             {
+                // Capture the original expression
+                rangeNode.Expression = GetText(contentNode);
+
                 // Parse Range expression and populate sourceCalculation and targetCalculation
                 var (sourceCalc, targetCalc, deps) = ParseRangeExpression(contentNode, nodes, graph);
                 
@@ -175,14 +178,15 @@ public class AstTranslator
                     rangeNode.AddDependency(dep);
                 }
             }
+            else if (graphNode is ParamNode paramNode)
+            {
+                // Param nodes look up their value from the context
+                paramNode.Calculation = ctx => ctx.ContainsKey(name) ? ctx.Get(name) : 0.0;
+            }
             else if (graphNode is FormulaNode formulaNode)
             {
-                // Special handling for Param: it needs to know its own name to look up value in context
-                if (contentNode.Kind == "type_def" && contentNode.Child(0).Kind == "param_def")
-                {
-                    formulaNode.Calculation = ctx => ctx.ContainsKey(name) ? ctx.Get(name) : 0.0;
-                    continue;
-                }
+                // Capture the original expression
+                formulaNode.Expression = GetText(contentNode);
 
                 // Parse the expression to build the calculation delegate and find dependencies
                 var (calc, deps) = ParseExpression(contentNode, nodes, graph);
@@ -907,6 +911,7 @@ public class AstTranslator
     private bool IsVolatile(GraphNode node)
     {
         // A node is volatile if it is a Param or depends on a Param
+        if (node is ParamNode) return true;
         if (_params.Contains(node.Name)) return true;
         
         // RangeNodes that depend on params are volatile

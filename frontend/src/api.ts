@@ -17,6 +17,7 @@ export interface GraphNode {
     id: string;
     type: string;
     label: string;
+    displayName?: string;
     metadata?: Record<string, any>;
 }
 

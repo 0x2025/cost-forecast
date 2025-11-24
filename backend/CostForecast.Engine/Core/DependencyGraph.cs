@@ -17,6 +17,11 @@ public class DependencyGraph
         _nodes[node.Name] = node;
     }
 
+    public void RemoveNode(string name)
+    {
+        _nodes.Remove(name);
+    }
+
     public GraphNode GetNode(string name)
     {
         return _nodes.TryGetValue(name, out var node) ? node : null;
@@ -43,8 +48,9 @@ public class DependencyGraph
             {
                 ConstantNode c => new ConstantNode(c.Name, c.Value),
                 InputNode i => new InputNode(i.Name, i.Key),
-                RangeNode r => new RangeNode(r.Name, r.SourceCalculation, r.TargetCalculation),
-                FormulaNode f => new FormulaNode(f.Name, f.Calculation),
+                RangeNode r => new RangeNode(r.Name, r.SourceCalculation, r.TargetCalculation, r.Expression),
+                ParamNode p => new ParamNode(p.Name, p.Calculation),
+                FormulaNode f => new FormulaNode(f.Name, f.Calculation, f.Expression),
                 _ => throw new NotSupportedException($"Cannot clone node type: {node.GetType().Name}")
             };
 

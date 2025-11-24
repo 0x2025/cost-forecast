@@ -74,24 +74,19 @@ total = SUM(result)
         itemNodes[0].Metadata!["result"].Should().Be(20.0); // 2 * 10
         itemNodes[1].Metadata!["result"].Should().Be(45.0); // 3 * 15
 
-        // Assert - Check edges from items Input to item nodes
-        var itemsToItem1Edge = graphDto.Edges.FirstOrDefault(e => e.Source == "items" && e.Target == "result(1)");
-        itemsToItem1Edge.Should().NotBeNull();
+        // Assert - items and $Input_items should be pruned (not needed in visualized graph)
+        var itemsNode = graphDto.Nodes.FirstOrDefault(n => n.Id == "items");
+        itemsNode.Should().BeNull("items node should be pruned as it's replaced by breakdown");
         
-        var itemsToItem2Edge = graphDto.Edges.FirstOrDefault(e => e.Source == "items" && e.Target == "result(2)");
-        itemsToItem2Edge.Should().NotBeNull();
+        var inputItemsNode = graphDto.Nodes.FirstOrDefault(n => n.Id == "$Input_items");
+        inputItemsNode.Should().BeNull("$Input_items should be pruned since items is pruned");
 
-        // Assert - Check edges from items to params
-        // Assert - Check edges from items to params (Data Flow: param -> item)
-        var item1ToQtyEdge = graphDto.Edges.FirstOrDefault(e => e.Source == "qty" && e.Target == "result(1)");
+        // Assert - Check edges from per-item params to item nodes
+        var item1ToQtyEdge = graphDto.Edges.FirstOrDefault(e => e.Source == "qty(1)" && e.Target == "result(1)");
         item1ToQtyEdge.Should().NotBeNull();
         
-        var item1ToPriceEdge = graphDto.Edges.FirstOrDefault(e => e.Source == "price" && e.Target == "result(1)");
+        var item1ToPriceEdge = graphDto.Edges.FirstOrDefault(e => e.Source == "price(1)" && e.Target == "result(1)");
         item1ToPriceEdge.Should().NotBeNull();
-
-        // Assert - Check edge from result Range to items input (Data Flow: items -> result)
-        var rangeToItemsEdge = graphDto.Edges.FirstOrDefault(e => e.Source == "items" && e.Target == "result");
-        rangeToItemsEdge.Should().NotBeNull();
 
         // Assert - Check edge from item nodes to result Range (Data Flow: item -> result)
         // This confirms the fix: RangeNode depends on its items
@@ -168,20 +163,20 @@ item_totals = Range(items, qty * price)
         itemNodes.Should().HaveCount(3);
         
         // Assert - Check Dependencies for Item 1
-        // item_totals(1) -> qty
-        var item1ToQty = graphDto.Edges.FirstOrDefault(e => e.Source == "qty" && e.Target == "item_totals(1)");
-        item1ToQty.Should().NotBeNull();
+        // item_totals(1) -> qty(1)
+        var item1ToQty = graphDto.Edges.FirstOrDefault(e => e.Source == "qty(1)" && e.Target == "item_totals(1)");
+        item1ToQty.Should().NotBeNull("Item 1 should depend on specific qty(1) node");
         
-        // item_totals(1) -> price
-        var item1ToPrice = graphDto.Edges.FirstOrDefault(e => e.Source == "price" && e.Target == "item_totals(1)");
-        item1ToPrice.Should().NotBeNull();
+        // item_totals(1) -> price(1)
+        var item1ToPrice = graphDto.Edges.FirstOrDefault(e => e.Source == "price(1)" && e.Target == "item_totals(1)");
+        item1ToPrice.Should().NotBeNull("Item 1 should depend on specific price(1) node");
 
-        // Assert - Check Dependency from Item 1 to Range Node (The fix)
-        // item_totals -> item_totals(1) (Visual: item_totals(1) -> item_totals)
-        // Edge direction in DTO is Source -> Target. 
-        // DependencyGraph: A depends on B means B -> A.
-        // GraphSerializer: Source=Dependency, Target=Node.
-        // So if RangeNode depends on ItemNode, Edge is ItemNode -> RangeNode.
+        // Assert - Check Dependencies for Item 2
+        // item_totals(2) -> qty(2)
+        var item2ToQty = graphDto.Edges.FirstOrDefault(e => e.Source == "qty(2)" && e.Target == "item_totals(2)");
+        item2ToQty.Should().NotBeNull("Item 2 should depend on specific qty(2) node");
+
+        // Assert - Check Dependency from Item 1 to Range Node
         var item1ToRange = graphDto.Edges.FirstOrDefault(e => e.Source == "item_totals(1)" && e.Target == "item_totals");
         item1ToRange.Should().NotBeNull();
     }

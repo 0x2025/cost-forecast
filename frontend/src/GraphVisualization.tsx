@@ -10,6 +10,8 @@ import {
     useEdgesState,
     MarkerType,
     ConnectionLineType,
+    Handle,
+    Position,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { GraphData } from './api';
@@ -19,21 +21,47 @@ interface GraphVisualizationProps {
     graphData: GraphData | null;
 }
 
+// Custom Node Component
+const CustomNode = ({ data }: { data: any }) => {
+    return (
+        <div className="h-full w-full flex items-center justify-center relative group">
+            <Handle type="target" position={Position.Left} className="!bg-gray-400" />
+
+            <div className="flex flex-col items-center">
+                <div className="text-xs font-bold mb-1 opacity-50 uppercase tracking-wider">
+                    {data.type}
+                </div>
+                <div className="font-mono font-medium text-sm whitespace-pre-wrap break-words max-w-[180px]">
+                    {data.label}
+                    {data.metadata?.expression && (
+                        <div className="text-xs opacity-50">{data.metadata.expression}</div>
+                    )}
+                </div>
+            </div>
+            <Handle type="source" position={Position.Right} className="!bg-gray-400" />
+        </div>
+    );
+};
+
+const nodeTypes = {
+    custom: CustomNode,
+};
 
 // Node style based on type
 const getNodeStyle = (type: string) => {
     const baseStyle = {
         padding: '10px 20px',
         borderRadius: '8px',
-        fontSize: '14px',
+        fontSize: '12px',
         fontWeight: 500,
         border: '2px solid',
-        minWidth: '180px',
+        minWidth: '200px',
         textAlign: 'center' as const,
+        fontFamily: 'monospace',
     };
 
     switch (type) {
-        case 'constant':
+        case 'param':
             return {
                 ...baseStyle,
                 background: '#dbeafe',
@@ -47,12 +75,34 @@ const getNodeStyle = (type: string) => {
                 borderColor: '#22c55e',
                 color: '#166534',
             };
+        case 'constant':
+            return {
+                ...baseStyle,
+                background: '#e5e7eb',
+                borderColor: '#6b7280',
+                color: '#374151',
+            };
         case 'formula':
             return {
                 ...baseStyle,
-                background: '#fef3c7',
-                borderColor: '#f59e0b',
-                color: '#92400e',
+                background: '#f3e8ff',
+                borderColor: '#a855f7',
+                color: '#6b21a8',
+            };
+        case 'range':
+            return {
+                ...baseStyle,
+                background: '#fed7aa',
+                borderColor: '#f97316',
+                color: '#9a3412',
+                fontWeight: 600,
+            };
+        case 'range_item':
+            return {
+                ...baseStyle,
+                background: '#ffedd5',
+                borderColor: '#fb923c',
+                color: '#9a3412',
             };
         default:
             return {
@@ -80,9 +130,9 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
 
         const layoutOptions = {
             'elk.algorithm': 'layered',
-            'elk.direction': 'LEFT',
-            'elk.spacing.nodeNode': '80',
-            'elk.layered.spacing.nodeNodeBetweenLayers': '100',
+            'elk.direction': 'RIGHT', // Changed to RIGHT for better flow
+            'elk.spacing.nodeNode': '60',
+            'elk.layered.spacing.nodeNodeBetweenLayers': '120',
             'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
             'elk.edgeRouting': 'ORTHOGONAL',
         };
@@ -92,8 +142,8 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
             layoutOptions: layoutOptions,
             children: graphData.nodes.map((node) => ({
                 id: node.id,
-                width: 180,
-                height: 40,
+                width: 220, // Increased width for custom node
+                height: 80, // Increased height for custom node
                 labels: [{ text: node.label }],
             })),
             edges: graphData.edges.map((edge, idx) => ({
@@ -106,30 +156,35 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
         elk.layout(graph)
             .then((layoutedGraph) => {
                 // Create nodes with layout positions
-                const flowNodes: Node[] = (layoutedGraph.children || []).map((node) => ({
-                    id: node.id,
-                    type: 'default',
-                    data: {
-                        label: graphData.nodes.find(n => n.id === node.id)?.label || node.id,
-                        metadata: graphData.nodes.find(n => n.id === node.id)?.metadata
-                    },
-                    position: { x: node.x!, y: node.y! },
-                    style: getNodeStyle(graphData.nodes.find(n => n.id === node.id)?.type || 'default'),
-                }));
+                const flowNodes: Node[] = (layoutedGraph.children || []).map((node) => {
+                    const graphNode = graphData.nodes.find(n => n.id === node.id);
+                    return {
+                        id: node.id,
+                        type: 'custom', // Use custom node type
+                        data: {
+                            label: graphNode?.displayName || graphNode?.label || node.id,
+                            metadata: graphNode?.metadata,
+                            type: graphNode?.type,
+                        },
+                        position: { x: node.x!, y: node.y! },
+                        style: getNodeStyle(graphNode?.type || 'default'),
+                    };
+                });
 
                 // Create edges
                 const flowEdges: Edge[] = graphData.edges.map((edge, idx) => ({
                     id: `e-${edge.source}-${edge.target}-${idx}`,
                     source: edge.source,
                     target: edge.target,
-                    type: ConnectionLineType.SimpleBezier,
-                    animated: false,
+                    type: ConnectionLineType.SmoothStep, // Changed to SmoothStep for cleaner look
+                    animated: true,
                     markerEnd: {
                         type: MarkerType.ArrowClosed,
                         width: 20,
                         height: 20,
+                        color: '#9ca3af',
                     },
-                    style: { stroke: '#6b7280', strokeWidth: 2 },
+                    style: { stroke: '#9ca3af', strokeWidth: 1.5 },
                 }));
 
                 setNodes(flowNodes);
@@ -170,9 +225,10 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
                 edges={edges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
+                nodeTypes={nodeTypes}
                 fitView
                 attributionPosition="bottom-left"
-                connectionLineType='smoothstep'
+                connectionLineType={ConnectionLineType.SmoothStep}
             >
                 <Background color="#e5e7eb" gap={16} />
                 <Controls />

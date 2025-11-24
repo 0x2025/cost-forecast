@@ -89,13 +89,35 @@ public class InputNode : GraphNode
     }
 }
 
-public class FormulaNode : GraphNode
+public class ParamNode : GraphNode
 {
     public Func<IEvaluationContext, object> Calculation { get; set; }
 
-    public FormulaNode(string name, Func<IEvaluationContext, object> calculation) : base(name)
+    public ParamNode(string name, Func<IEvaluationContext, object> calculation) : base(name)
     {
         Calculation = calculation;
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return base.Equals(obj) && obj is ParamNode;
+    }
+
+    public override int GetHashCode()
+    {
+        return base.GetHashCode();
+    }
+}
+
+public class FormulaNode : GraphNode
+{
+    public Func<IEvaluationContext, object> Calculation { get; set; }
+    public string? Expression { get; set; }
+
+    public FormulaNode(string name, Func<IEvaluationContext, object> calculation, string? expression = null) : base(name)
+    {
+        Calculation = calculation;
+        Expression = expression;
     }
 
     public void AddDependency(GraphNode node)

@@ -17,6 +17,16 @@ public class GraphSerializer
     /// </summary>
     public static GraphDto SerializeGraph(DependencyGraph graph)
     {
+        return SerializeGraph(graph, null);
+    }
+    
+    /// <summary>
+    /// Converts a DependencyGraph into a serializable GraphDto with evaluation results.
+    /// </summary>
+    /// <param name="graph">The dependency graph to serialize</param>
+    /// <param name="results">Optional evaluation results to include in display names</param>
+    public static GraphDto SerializeGraph(DependencyGraph graph, Dictionary<string, object>? results)
+    {
         var graphDto = new GraphDto();
         var allNodes = graph.GetAllNodes();
 
@@ -46,9 +56,13 @@ public class GraphSerializer
                     { "key", inputNode.Key }
                 };
             }
-            else if (node is RangeNode)
+            else if (node is RangeNode rangeNode)
             {
                 nodeDto.Type = "range";
+                if (!string.IsNullOrEmpty(rangeNode.Expression))
+                {
+                    nodeDto.Metadata = new Dictionary<string, object> { { "expression", rangeNode.Expression } };
+                }
             }
             else if (node is RangeItemNode itemNode)
             {
@@ -60,15 +74,26 @@ public class GraphSerializer
                     // Could also include itemValues if needed
                 };
             }
-            else if (node is FormulaNode)
+            else if (node is ParamNode)
+            {
+                nodeDto.Type = "param";
+            }
+            else if (node is FormulaNode formulaNode)
             {
                 nodeDto.Type = "formula";
+                if (!string.IsNullOrEmpty(formulaNode.Expression))
+                {
+                    nodeDto.Metadata = new Dictionary<string, object> { { "expression", formulaNode.Expression } };
+                }
             }
             else
             {
                 // Handle other node types (Param, Reference, etc.)
                 nodeDto.Type = node.GetType().Name.Replace("Node", "").ToLower();
             }
+            
+            // Generate display name based on node type and evaluation results
+            nodeDto.DisplayName = GenerateDisplayName(node, results);
 
             graphDto.Nodes.Add(nodeDto);
         }
@@ -87,5 +112,67 @@ public class GraphSerializer
         }
 
         return graphDto;
+    }
+    
+    private static string GenerateDisplayName(GraphNode node, Dictionary<string, object>? results)
+    {
+        var name = node.Name;
+        object? value = null;
+        var hasValue = results != null && results.TryGetValue(name, out value);
+        
+        return node switch
+        {
+            ConstantNode constantNode => $"{name} = {FormatValue(constantNode.Value)}",
+            InputNode inputNode => hasValue 
+                ? $"Input({inputNode.Key}) = {FormatValue(value!)}"
+                : $"Input({inputNode.Key})",
+            ParamNode => $"{name}: Param",
+            RangeNode => hasValue 
+                ? $"{name} = Range(...) → [{GetArrayLength(value!)} items]"
+                : $"{name} = Range(...)",
+            RangeItemNode itemNode => $"{name} = {FormatValue(itemNode.Result)}",
+            FormulaNode => hasValue 
+                ? $"{name} = {FormatValue(value!)}"
+                : name,
+            _ => name
+        };
+    }
+    
+    private static string FormatValue(object? value)
+    {
+        if (value == null) return "null";
+        
+        if (value is double d)
+        {
+            // Format numbers nicely
+            return d % 1 == 0 ? d.ToString("F0") : d.ToString("F2");
+        }
+        
+        if (value is Array arr)
+        {
+            return $"[{arr.Length} items]";
+        }
+        
+        if (value is System.Collections.IEnumerable enumerable and not string)
+        {
+            var count = 0;
+            foreach (var _ in enumerable) count++;
+            return $"[{count} items]";
+        }
+        
+        var str = value.ToString() ?? "null";
+        return str.Length > 30 ? str.Substring(0, 27) + "..." : str;
+    }
+    
+    private static int GetArrayLength(object? value)
+    {
+        if (value is Array arr) return arr.Length;
+        if (value is System.Collections.IEnumerable enumerable and not string)
+        {
+            var count = 0;
+            foreach (var _ in enumerable) count++;
+            return count;
+        }
+        return 0;
     }
 }
