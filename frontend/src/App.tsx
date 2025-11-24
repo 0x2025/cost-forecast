@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { api, type CalculationResponse } from './api';
-import { useTreeSitter, treeSitterPlugin, myHighlightStyle } from './useTreeSitter';
+import { useTreeSitter, treeSitterPlugin, myHighlightStyle, dslAutocomplete } from './useTreeSitter';
 import { syntaxHighlighting } from '@codemirror/language';
 import { InputGrid, type InputRow } from './InputGrid';
 import { GraphVisualization } from './GraphVisualization';
@@ -73,7 +73,8 @@ function App() {
   const extensions = useMemo(() => {
     return [
       treeSitterPlugin(parser),
-      syntaxHighlighting(myHighlightStyle)
+      syntaxHighlighting(myHighlightStyle),
+      dslAutocomplete(parser)
     ];
   }, [parser]);
 

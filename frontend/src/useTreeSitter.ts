@@ -4,6 +4,7 @@ import { EditorView, Decoration, type DecorationSet, ViewPlugin, ViewUpdate } fr
 import { RangeSetBuilder } from '@codemirror/state';
 import { tags } from '@lezer/highlight';
 import { HighlightStyle } from '@codemirror/language';
+import { autocompletion, type CompletionContext, type CompletionResult, type Completion } from '@codemirror/autocomplete';
 
 // Define a simple highlight style
 export const myHighlightStyle = HighlightStyle.define([
@@ -156,4 +157,177 @@ export function treeSitterPlugin(parser: Parser | null) {
     );
 
     return [plugin];
+}
+
+// Built-in function completions
+const builtInFunctions: Completion[] = [
+    {
+        label: "SUM",
+        type: "function",
+        apply: "SUM()",
+        detail: "Aggregate function",
+        info: "Sums all provided values or arrays. Example: SUM(a, b, c)"
+    },
+    {
+        label: "AVERAGE",
+        type: "function",
+        apply: "AVERAGE()",
+        detail: "Aggregate function",
+        info: "Calculates the average of all provided values or arrays"
+    },
+    {
+        label: "MIN",
+        type: "function",
+        apply: "MIN()",
+        detail: "Aggregate function",
+        info: "Returns the minimum value from all provided values or arrays"
+    },
+    {
+        label: "MAX",
+        type: "function",
+        apply: "MAX()",
+        detail: "Aggregate function",
+        info: "Returns the maximum value from all provided values or arrays"
+    },
+    {
+        label: "IF",
+        type: "function",
+        apply: "IF()",
+        detail: "Conditional function",
+        info: "Returns true_value if condition is true (non-zero), otherwise returns false_value"
+    },
+    {
+        label: "Range",
+        type: "function",
+        apply: "Range()",
+        detail: "Iteration function",
+        info: "Applies an expression to each item in the source array. Example: Range(items, qty * price)"
+    }
+];
+
+// Declaration type completions
+const declarationTypes: Completion[] = [
+    {
+        label: "Input",
+        type: "keyword",
+        apply: 'Input("")',
+        detail: "Declaration",
+        info: "Binds to external input data using the specified key"
+    },
+    {
+        label: "Param",
+        type: "keyword",
+        apply: "Param",
+        detail: "Declaration",
+        info: "Binds to implicit context parameter (used with Range)"
+    },
+    {
+        label: "Const",
+        type: "keyword",
+        apply: "Const()",
+        detail: "Declaration",
+        info: "Defines a constant literal value"
+    },
+    {
+        label: "Reference",
+        type: "keyword",
+        apply: "Reference()",
+        detail: "Declaration",
+        info: "Creates an alias to another variable"
+    }
+];
+
+// Extract variable names from the parsed tree
+function extractVariables(parser: Parser | null, text: string): Set<string> {
+    const variables = new Set<string>();
+
+    if (!parser) return variables;
+
+    try {
+        const tree = parser.parse(text);
+        const cursor = tree.walk();
+
+        let reachedRoot = false;
+        while (!reachedRoot) {
+            const node = cursor.currentNode;
+
+            // Look for assignment and declaration statements
+            if (node.type === 'assignment' || node.type === 'declaration') {
+                const nameNode = node.childForFieldName('name');
+                if (nameNode) {
+                    const varName = text.substring(nameNode.startIndex, nameNode.endIndex);
+                    if (varName) {
+                        variables.add(varName);
+                    }
+                }
+            }
+
+            if (cursor.gotoFirstChild()) continue;
+            if (cursor.gotoNextSibling()) continue;
+
+            let retracing = true;
+            while (retracing) {
+                if (!cursor.gotoParent()) {
+                    retracing = false;
+                    reachedRoot = true;
+                } else {
+                    if (cursor.gotoNextSibling()) {
+                        retracing = false;
+                    }
+                }
+            }
+        }
+
+        tree.delete();
+    } catch (e) {
+        console.error("Error extracting variables:", e);
+    }
+
+    return variables;
+}
+
+// Create autocomplete extension
+export function dslAutocomplete(parser: Parser | null) {
+    return autocompletion({
+        override: [
+            (context: CompletionContext): CompletionResult | null => {
+                const word = context.matchBefore(/\w*/);
+                if (!word) return null;
+
+                // Don't autocomplete if the word is too short (except when explicitly triggered)
+                if (word.from === word.to && !context.explicit) return null;
+
+                const text = context.state.doc.toString();
+                const pos = context.pos;
+
+                // Check if we're after a colon (declaration context)
+                const beforeCursor = text.substring(Math.max(0, pos - 50), pos);
+                const isAfterColon = /:\s*\w*$/.test(beforeCursor);
+
+                // Extract variables from the document
+                const variables = extractVariables(parser, text);
+                const variableCompletions: Completion[] = Array.from(variables).map(v => ({
+                    label: v,
+                    type: "variable",
+                    detail: "Variable"
+                }));
+
+                let options: Completion[] = [];
+
+                if (isAfterColon) {
+                    // After colon, suggest declaration types
+                    options = [...declarationTypes];
+                } else {
+                    // Otherwise, suggest functions and variables
+                    options = [...builtInFunctions, ...variableCompletions];
+                }
+
+                return {
+                    from: word.from,
+                    options: options,
+                    validFor: /^\w*$/
+                };
+            }
+        ]
+    });
 }
