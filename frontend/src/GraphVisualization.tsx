@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
     ReactFlow,
     Background,
@@ -23,11 +23,15 @@ interface GraphVisualizationProps {
 
 // Custom Node Component
 const CustomNode = ({ data }: { data: any }) => {
+    const hasChildren = data.hasChildren || false;
+    const isCollapsed = data.isCollapsed || false;
+    const childCount = data.childCount || 0;
+
     return (
         <div className="h-full w-full flex items-center justify-center relative group">
-            {/* Handles are needed for edge rendering but not connectable */}
+            {/* Source on LEFT (outputs flow left), Target on RIGHT (inputs from right) */}
             <Handle
-                type="target"
+                type="source"
                 position={Position.Left}
                 isConnectable={false}
                 className="!bg-gray-400 !cursor-default"
@@ -37,16 +41,27 @@ const CustomNode = ({ data }: { data: any }) => {
                 <div className="text-xs font-bold mb-1 opacity-50 uppercase tracking-wider">
                     {data.type}
                 </div>
-                <div className="font-mono font-medium text-sm whitespace-pre-wrap break-words max-w-[180px]">
+                <div className="font-mono font-medium text-sm whitespace-pre-wrap break-words max-w-[180px] text-center">
                     {data.label}
                     {data.metadata?.expression && (
                         <div className="text-xs opacity-50">{data.metadata.expression}</div>
                     )}
                 </div>
+
+                {/* Collapse/Expand Indicator */}
+                {hasChildren && (
+                    <div className="mt-1 text-xs font-medium" style={{ color: 'inherit' }}>
+                        {isCollapsed ? (
+                            <span>▶ {childCount} hidden</span>
+                        ) : (
+                            <span>▼ {childCount} shown</span>
+                        )}
+                    </div>
+                )}
             </div>
 
             <Handle
-                type="source"
+                type="target"
                 position={Position.Right}
                 isConnectable={false}
                 className="!bg-gray-400 !cursor-default"
@@ -129,33 +144,108 @@ const getNodeStyle = (type: string) => {
 export function GraphVisualization({ graphData }: GraphVisualizationProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+    const [algorithm, setAlgorithm] = useState<string>('layered');
+    const [edgeRouting, setEdgeRouting] = useState<string>('ORTHOGONAL');
+    const [connectionType, setConnectionType] = useState<ConnectionLineType>(ConnectionLineType.Bezier);
+    const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
+    const [nodeChildrenMap, setNodeChildrenMap] = useState<Map<string, string[]>>(new Map());
+    const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
+    const [fullLayoutNodes, setFullLayoutNodes] = useState<Node[]>([]); // Store complete layout
 
-    // Transform graph data into React Flow format
+    // Build hierarchy from graph data
+    const buildHierarchy = (graphData: GraphData) => {
+        const childrenMap = new Map<string, string[]>();
+        const parentMap = new Map<string, string>();
+
+        // Build parent-child relationships from edges
+        // In dependency graph: edge A→B means B depends on A
+        // So B is the parent (dependent), A is the child (dependency)
+        graphData.edges.forEach(edge => {
+            const child = edge.source;  // dependency
+            const parent = edge.target; // dependent
+
+            if (!childrenMap.has(parent)) {
+                childrenMap.set(parent, []);
+            }
+            childrenMap.get(parent)!.push(child);
+            parentMap.set(child, parent);
+        });
+
+        setNodeChildrenMap(childrenMap);
+
+        // Smart defaults: auto-collapse range nodes that have many range_item children
+        const autoCollapse = new Set<string>();
+        graphData.nodes.forEach(node => {
+            // Collapse range nodes that have range_item children
+            if (node.type === 'range') {
+                const children = childrenMap.get(node.id) || [];
+                const hasRangeItems = children.some(childId => {
+                    const childNode = graphData.nodes.find(n => n.id === childId);
+                    return childNode?.type === 'range_item';
+                });
+                if (hasRangeItems && children.length > 3) { // Only auto-collapse if >3 items
+                    autoCollapse.add(node.id);
+                }
+            }
+        });
+
+        setCollapsedNodes(autoCollapse);
+    };
+
+    // Check if a node should be visible based on collapse state
+    const isNodeVisible = (nodeId: string, graphData: GraphData): boolean => {
+        // Find all parents (nodes that depend on this node)
+        const parentEdges = graphData.edges.filter(e => e.source === nodeId);
+
+        // If no parents, this is a leaf node (output) - always visible
+        if (parentEdges.length === 0) {
+            return true;
+        }
+
+        // Node is visible if AT LEAST ONE parent is expanded (not collapsed)
+        // Only hide if ALL parents are collapsed
+        const hasExpandedParent = parentEdges.some(edge => {
+            const parent = edge.target;
+            return !collapsedNodes.has(parent) && isNodeVisible(parent, graphData);
+        });
+
+        return hasExpandedParent;
+    };
+
+    // Build hierarchy only when graphData changes
+    useEffect(() => {
+        if (graphData && graphData.nodes && graphData.nodes.length > 0) {
+            buildHierarchy(graphData);
+        }
+    }, [graphData]);
+
+
+    // Calculate full layout only when graph data or layout settings change
     useEffect(() => {
         if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
-            setNodes([]);
-            setEdges([]);
+            setFullLayoutNodes([]);
             return;
         }
 
         const elk = new ELK();
 
         const layoutOptions = {
-            'elk.algorithm': 'layered',
-            'elk.direction': 'RIGHT', // Changed to RIGHT for better flow
+            'elk.algorithm': algorithm,
+            'elk.direction': 'LEFT', // Output on left, dependencies on right (drill-down pattern)
             'elk.spacing.nodeNode': '60',
             'elk.layered.spacing.nodeNodeBetweenLayers': '120',
             'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-            'elk.edgeRouting': 'ORTHOGONAL',
+            'elk.edgeRouting': edgeRouting,
         };
 
+        // Layout ALL nodes (including those that will be hidden)
         const graph: ElkNode = {
             id: 'root',
             layoutOptions: layoutOptions,
             children: graphData.nodes.map((node) => ({
                 id: node.id,
-                width: 220, // Increased width for custom node
-                height: 80, // Increased height for custom node
+                width: 220,
+                height: 100,
                 labels: [{ text: node.label }],
             })),
             edges: graphData.edges.map((edge, idx) => ({
@@ -167,44 +257,83 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
 
         elk.layout(graph)
             .then((layoutedGraph) => {
-                // Create nodes with layout positions
-                const flowNodes: Node[] = (layoutedGraph.children || []).map((node) => {
+                // Create nodes with calculated positions
+                const layoutedNodes: Node[] = (layoutedGraph.children || []).map((node) => {
                     const graphNode = graphData.nodes.find(n => n.id === node.id);
+                    const children = nodeChildrenMap.get(node.id) || [];
+
                     return {
                         id: node.id,
-                        type: 'custom', // Use custom node type
+                        type: 'custom',
                         data: {
                             label: graphNode?.displayName || graphNode?.label || node.id,
                             metadata: graphNode?.metadata,
                             type: graphNode?.type,
+                            hasChildren: children.length > 0,
+                            isCollapsed: false, // Will be updated by visibility filter
+                            childCount: children.length,
                         },
                         position: { x: node.x!, y: node.y! },
                         style: getNodeStyle(graphNode?.type || 'default'),
                     };
                 });
 
-                // Create edges
-                const flowEdges: Edge[] = graphData.edges.map((edge, idx) => ({
-                    id: `e-${edge.source}-${edge.target}-${idx}`,
-                    source: edge.source,
-                    target: edge.target,
-                    type: ConnectionLineType.SmoothStep, // Changed to SmoothStep for cleaner look
-                    animated: true,
-                    markerEnd: {
-                        type: MarkerType.ArrowClosed,
-                        width: 20,
-                        height: 20,
-                        color: '#9ca3af',
-                    },
-                    style: { stroke: '#9ca3af', strokeWidth: 1.5 },
-                }));
+                setFullLayoutNodes(layoutedNodes);
 
-                setNodes(flowNodes);
-                setEdges(flowEdges);
+                if (isInitialLoad) {
+                    setIsInitialLoad(false);
+                }
             })
             .catch(console.error);
 
-    }, [graphData, setNodes, setEdges]);
+    }, [graphData, algorithm, edgeRouting, nodeChildrenMap, isInitialLoad]);
+
+    // Filter visible nodes based on collapse state (no re-layout)
+    useEffect(() => {
+        if (!graphData || fullLayoutNodes.length === 0) {
+            setNodes([]);
+            setEdges([]);
+            return;
+        }
+
+        // Filter visible nodes
+        const visibleNodeIds = graphData.nodes
+            .filter(node => isNodeVisible(node.id, graphData))
+            .map(n => n.id);
+
+        // Update nodes with collapse state and filter hidden ones
+        const visibleNodes = fullLayoutNodes
+            .filter(node => visibleNodeIds.includes(node.id))
+            .map(node => ({
+                ...node,
+                data: {
+                    ...node.data,
+                    isCollapsed: collapsedNodes.has(node.id),
+                },
+            }));
+
+        // Filter visible edges
+        const visibleEdges: Edge[] = graphData.edges
+            .filter(edge => visibleNodeIds.includes(edge.source) && visibleNodeIds.includes(edge.target))
+            .map((edge, idx) => ({
+                id: `e-${edge.source}-${edge.target}-${idx}`,
+                source: edge.source,
+                target: edge.target,
+                type: connectionType, // Use dynamic connection type from state
+                animated: true,
+                markerEnd: {
+                    type: MarkerType.ArrowClosed,
+                    width: 20,
+                    height: 20,
+                    color: '#9ca3af',
+                },
+                style: { stroke: '#9ca3af', strokeWidth: 1.5 },
+            }));
+
+        setNodes(visibleNodes);
+        setEdges(visibleEdges);
+
+    }, [fullLayoutNodes, collapsedNodes, graphData, connectionType, setNodes, setEdges]);
 
     if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
         return (
@@ -231,31 +360,102 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
     }
 
     return (
-        <div className="h-full bg-white border rounded">
-            <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                nodeTypes={nodeTypes}
-                fitView
-                attributionPosition="bottom-left"
-                connectionLineType={ConnectionLineType.SmoothStep}
-                // Disable connection editing but allow node movement
-                nodesDraggable={true}
-                nodesConnectable={false}
-                elementsSelectable={true}
-            >
-                <Background color="#e5e7eb" gap={16} />
-                <Controls />
-                <MiniMap
-                    nodeColor={(node) => {
-                        const style = node.style as any;
-                        return style?.borderColor || '#9ca3af';
+        <div className="h-full bg-white border rounded flex flex-col">
+            {/* Algorithm Selector */}
+            <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                    <label htmlFor="algorithm" className="text-sm font-medium text-gray-700">
+                        Layout:
+                    </label>
+                    <select
+                        id="algorithm"
+                        value={algorithm}
+                        onChange={(e) => setAlgorithm(e.target.value)}
+                        className="px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                        <option value="layered">Layered</option>
+                        <option value="force">Force</option>
+                        <option value="stress">Stress</option>
+                        <option value="mrtree">Tree</option>
+                        <option value="radial">Radial</option>
+                        <option value="disco">DisCo</option>
+                    </select>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <label htmlFor="edgeRouting" className="text-sm font-medium text-gray-700">
+                        Edge Routing:
+                    </label>
+                    <select
+                        id="edgeRouting"
+                        value={edgeRouting}
+                        onChange={(e) => setEdgeRouting(e.target.value)}
+                        className="px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                        <option value="ORTHOGONAL">Orthogonal</option>
+                        <option value="POLYLINE">Polyline</option>
+                        <option value="SPLINES">Splines</option>
+                        <option value="UNDEFINED">Undefined</option>
+                    </select>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <label htmlFor="connectionType" className="text-sm font-medium text-gray-700">
+                        Edge Style:
+                    </label>
+                    <select
+                        id="connectionType"
+                        value={connectionType}
+                        onChange={(e) => setConnectionType(e.target.value as ConnectionLineType)}
+                        className="px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                        <option value={ConnectionLineType.Bezier}>Bezier</option>
+                        <option value={ConnectionLineType.Straight}>Straight</option>
+                        <option value={ConnectionLineType.Step}>Step</option>
+                        <option value={ConnectionLineType.SmoothStep}>Smooth Step</option>
+                        <option value={ConnectionLineType.SimpleBezier}>Simple Bezier</option>
+                    </select>
+                </div>
+
+                <span className="text-xs text-gray-500 ml-auto">
+                    Experiment with different layouts
+                </span>
+            </div>
+
+            {/* Graph */}
+            <div className="flex-1">
+                <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onNodeClick={(_event, node) => {
+                        const children = nodeChildrenMap.get(node.id) || [];
+                        if (children.length > 0) {
+                            const newCollapsed = new Set(collapsedNodes);
+                            if (newCollapsed.has(node.id)) {
+                                newCollapsed.delete(node.id);
+                            } else {
+                                newCollapsed.add(node.id);
+                            }
+                            setCollapsedNodes(newCollapsed);
+                        }
                     }}
-                    maskColor="rgba(0, 0, 0, 0.1)"
-                />
-            </ReactFlow>
+                    nodeTypes={nodeTypes}
+                    // fitView={isInitialLoad} // Only fit view on initial load
+                    fitViewOptions={{ duration: 200 }} // Smooth initial fit
+                    attributionPosition="bottom-left"
+                    connectionLineType={ConnectionLineType.SimpleBezier}
+                    snapToGrid={true}
+                    // Disable connection editing but allow node movement
+                    nodesDraggable={true}
+                    nodesConnectable={false}
+                    elementsSelectable={true}
+                >
+                    <Background color="#e5e7eb" gap={16} />
+                    <Controls />
+                </ReactFlow>
+            </div>
         </div>
     );
 }
