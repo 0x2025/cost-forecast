@@ -5,6 +5,7 @@ import { useTreeSitter, treeSitterPlugin, myHighlightStyle } from './useTreeSitt
 import { syntaxHighlighting } from '@codemirror/language';
 import { InputGrid, type InputRow } from './InputGrid';
 import { GraphVisualization } from './GraphVisualization';
+import { ChartsTab } from './components/charts/ChartsTab';
 
 const STORAGE_KEY_SOURCE = 'costforecast_source';
 const STORAGE_KEY_INPUTS = 'costforecast_inputs';
@@ -64,7 +65,8 @@ function App() {
 
   const [result, setResult] = useState<CalculationResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'results' | 'graph'>('results');
+  const [activeTab, setActiveTab] = useState<'results' | 'graph' | 'charts'>('results');
+  const [showScenarios, setShowScenarios] = useState(false);
 
   const { parser } = useTreeSitter();
 
@@ -117,6 +119,7 @@ function App() {
     if (window.confirm(`Load scenario "${scenario.name}"? Unsaved changes to current editor will be lost.`)) {
       setSource(scenario.source);
       setInputs(scenario.inputs);
+      setShowScenarios(false);
     }
   };
 
@@ -142,6 +145,9 @@ function App() {
 
       const data = await api.calculate(source, inputRecord);
       setResult(data);
+      if (activeTab === 'results' && data.graph) {
+        // Optional: auto-switch to graph if desired, but sticking to results is safer
+      }
     } catch (e) {
       setResult({
         results: {},
@@ -154,126 +160,209 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100 font-sans">
-      {/* Sidebar / Inputs */}
-      <div className="w-1/3 bg-white border-r flex flex-col h-full">
-        <div className="p-4 border-b">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-800">Inputs</h2>
-            <div className="flex gap-2">
-              <button
-                onClick={handleSaveScenario}
-                className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200"
-              >
-                Save Scenario
-              </button>
-              <button
-                onClick={handleReset}
-                className="text-xs text-red-600 hover:text-red-800 underline"
-              >
-                Reset
-              </button>
+    <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+      {/* Header */}
+      <header className="bg-white border-b-2 border-slate-900 h-16 flex items-center justify-between px-8 z-10 shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-slate-900 flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="font-serif font-semibold text-2xl text-slate-900 tracking-tight leading-none">CostForecast</h1>
+              <p className="text-[9px] text-slate-500 uppercase tracking-[0.15em] font-medium mt-0.5">The cost modeling that you can trust</p>
             </div>
           </div>
-          <div className="h-64 overflow-hidden border rounded">
-            <InputGrid data={inputs} onChange={setInputs} />
-          </div>
+        </div>
+        <div className="flex items-center gap-4">
           <button
-            onClick={handleCalculate}
-            disabled={loading}
-            className="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+            onClick={() => setShowScenarios(!showScenarios)}
+            className={`text-sm px-4 py-2 transition-colors flex items-center gap-2 font-medium border ${showScenarios ? 'bg-slate-900 text-white border-slate-900' : 'text-slate-700 border-slate-300 hover:border-slate-900 hover:text-slate-900'}`}
           >
-            {loading ? 'Calculating...' : 'Calculate'}
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            Scenarios
+          </button>
+          <div className="h-6 w-px bg-slate-300"></div>
+          <button
+            onClick={handleReset}
+            className="text-xs text-slate-500 hover:text-red-600 transition-colors font-medium"
+          >
+            Reset
           </button>
         </div>
+      </header>
 
-        {/* Saved Scenarios List */}
-        <div className="flex-1 p-4 overflow-auto bg-gray-50">
-          <h3 className="font-bold text-gray-700 mb-2">Saved Scenarios</h3>
-          {scenarios.length === 0 ? (
-            <p className="text-sm text-gray-500 italic">No saved scenarios.</p>
-          ) : (
-            <div className="space-y-2">
-              {scenarios.map(scenario => (
-                <div
-                  key={scenario.id}
-                  onClick={() => handleLoadScenario(scenario)}
-                  className="bg-white p-3 rounded border hover:border-blue-400 cursor-pointer shadow-sm group relative"
-                >
-                  <div className="font-medium text-gray-800">{scenario.name}</div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {new Date(scenario.timestamp).toLocaleString()}
-                  </div>
-                  <button
-                    onClick={(e) => handleDeleteScenario(scenario.id, e)}
-                    className="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Delete Scenario"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Scenarios Drawer */}
+        {showScenarios && (
+          <div className="absolute top-0 right-0 bottom-0 w-80 bg-white shadow-2xl z-20 border-l border-slate-200 flex flex-col animate-in slide-in-from-right duration-200">
+            <div className="p-4 border-b border-slate-900 flex justify-between items-center bg-white">
+              <h3 className="font-serif font-semibold text-lg text-slate-900">Saved Scenarios</h3>
+              <button onClick={() => setShowScenarios(false)} className="text-slate-400 hover:text-slate-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-          )}
-        </div>
-      </div>
+            <div className="flex-1 overflow-auto p-4 space-y-3">
+              {scenarios.length === 0 ? (
+                <div className="text-center py-8 text-slate-400 text-sm">
+                  No scenarios saved yet.
+                </div>
+              ) : (
+                scenarios.map(scenario => (
+                  <div
+                    key={scenario.id}
+                    onClick={() => handleLoadScenario(scenario)}
+                    className="bg-white p-3 border border-slate-200 hover:border-slate-900 cursor-pointer group transition-all relative"
+                  >
+                    <div className="font-semibold text-slate-800">{scenario.name}</div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      {new Date(scenario.timestamp).toLocaleString()}
+                    </div>
+                    <button
+                      onClick={(e) => handleDeleteScenario(scenario.id, e)}
+                      className="absolute top-2 right-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                      title="Delete Scenario"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="p-4 border-t border-slate-900 bg-white">
+              <button
+                onClick={handleSaveScenario}
+                className="w-full py-2.5 bg-slate-900 text-white font-medium hover:bg-slate-800 transition-colors"
+              >
+                Save Current State
+              </button>
+            </div>
+          </div>
+        )}
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Editor */}
-        <div className="h-1/2 p-4 border-b bg-gray-50">
-          <h2 className="text-xl font-bold mb-4 text-gray-800">Model Logic (DSL)</h2>
-          <div className="border rounded overflow-hidden h-[calc(100%-3rem)] shadow-sm bg-white">
-            <CodeMirror
-              value={source}
-              height="100%"
-              extensions={extensions}
-              onChange={(val) => setSource(val)}
-              theme="light"
-            />
+        {/* Left Panel: Inputs & Editor */}
+        <div className="w-[40%] flex flex-col border-r border-slate-200 bg-white z-0">
+          {/* Inputs Section */}
+          <div className="h-1/3 flex flex-col border-b border-slate-200">
+            <div className="px-4 py-3 bg-white border-b border-slate-900 flex justify-between items-center">
+              <h2 className="font-serif font-semibold text-base text-slate-900 tracking-tight flex items-center gap-2">
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                </svg>
+                Variables & Inputs
+              </h2>
+            </div>
+            <div className="flex-1 overflow-hidden p-0">
+              <InputGrid data={inputs} onChange={setInputs} />
+            </div>
+          </div>
+
+          {/* Editor Section */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="px-4 py-3 bg-white border-b border-slate-900 flex justify-between items-center">
+              <h2 className="font-serif font-semibold text-base text-slate-900 tracking-tight flex items-center gap-2">
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                Model Logic
+              </h2>
+              <button
+                onClick={handleCalculate}
+                disabled={loading}
+                className="bg-slate-900 text-white text-xs font-semibold px-5 py-2 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 tracking-wide uppercase"
+              >
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Run Model
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden relative">
+              <CodeMirror
+                value={source}
+                height="100%"
+                extensions={extensions}
+                onChange={(val) => setSource(val)}
+                theme="light"
+                className="h-full text-sm"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Results & Graph - Tabbed */}
-        <div className="h-1/2 p-4 bg-white flex flex-col">
-          {/* Tab Headers */}
-          <div className="flex border-b mb-4">
+        {/* Right Panel: Visualization & Results */}
+        <div className="flex-1 flex flex-col bg-slate-50/50">
+          {/* Tabs */}
+          <div className="flex border-b-2 border-slate-900 bg-white px-6 gap-1">
             <button
               onClick={() => setActiveTab('results')}
-              className={`px-6 py-2 font-medium transition-colors ${activeTab === 'results'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-gray-800'
+              className={`px-6 py-3 text-sm font-semibold transition-all border-b-2 -mb-[2px] ${activeTab === 'results'
+                ? 'text-slate-900 border-slate-900'
+                : 'text-slate-500 border-transparent hover:text-slate-700 hover:border-slate-300'
                 }`}
             >
               Results
             </button>
             <button
               onClick={() => setActiveTab('graph')}
-              className={`px-6 py-2 font-medium transition-colors ${activeTab === 'graph'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-gray-800'
+              className={`px-6 py-3 text-sm font-semibold transition-all border-b-2 -mb-[2px] ${activeTab === 'graph'
+                ? 'text-slate-900 border-slate-900'
+                : 'text-slate-500 border-transparent hover:text-slate-700 hover:border-slate-300'
                 }`}
             >
-              Graph
+              Dependency Graph
+            </button>
+            <button
+              onClick={() => setActiveTab('charts')}
+              className={`px-6 py-3 text-sm font-semibold transition-all border-b-2 -mb-[2px] ${activeTab === 'charts'
+                ? 'text-slate-900 border-slate-900'
+                : 'text-slate-500 border-transparent hover:text-slate-700 hover:border-slate-300'
+                }`}
+            >
+              Charts & Analysis
             </button>
           </div>
 
-          {/* Tab Content */}
-          <div className="flex-1 overflow-auto">
+          {/* Content Area */}
+          <div className="flex-1 overflow-hidden bg-white p-6 relative">
             {activeTab === 'results' && (
-              <div>
-                {result && (
-                  <div>
+              <div className="h-full overflow-auto animate-in fade-in duration-200">
+                {result ? (
+                  <div className="max-w-3xl mx-auto">
                     {result.errors && result.errors.length > 0 && (
-                      <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-                        <h3 className="text-red-700 font-bold">Errors</h3>
-                        <ul className="list-disc list-inside text-red-600">
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 shadow-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <h3 className="text-red-800 font-bold">Calculation Errors</h3>
+                        </div>
+                        <ul className="list-disc list-inside text-red-700 text-sm space-y-1 ml-1">
                           {result.errors.map((err, i) => (
                             <li key={i}>
                               {err.message}
-                              {err.line && <span className="text-gray-500 text-sm ml-2">(Line: {err.line})</span>}
+                              {err.line && <span className="text-red-500 ml-2 font-mono text-xs bg-red-100 px-1 rounded">Line {err.line}</span>}
                             </li>
                           ))}
                         </ul>
@@ -281,19 +370,19 @@ function App() {
                     )}
 
                     {Object.keys(result.results).length > 0 && (
-                      <div className="overflow-x-auto border rounded">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
+                      <div className="border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                        <table className="min-w-full divide-y divide-slate-200">
+                          <thead className="bg-slate-50">
                             <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Variable</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+                              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Variable Name</th>
+                              <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Calculated Value</th>
                             </tr>
                           </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {Object.entries(result.results).map(([key, value]) => (
-                              <tr key={key} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{key}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">{String(value)}</td>
+                          <tbody className="bg-white divide-y divide-slate-200">
+                            {Object.entries(result.results).map(([key, value], idx) => (
+                              <tr key={key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-700">{key}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono text-right">{String(value)}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -301,14 +390,31 @@ function App() {
                       </div>
                     )}
                   </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                    <svg className="w-16 h-16 mb-4 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p className="text-lg font-medium text-slate-500">Ready to Calculate</p>
+                    <p className="text-sm mt-2">Enter your model logic and inputs, then click "Run Model"</p>
+                  </div>
                 )}
-                {!result && <p className="text-gray-500 italic">Run calculation to see results.</p>}
               </div>
             )}
 
             {activeTab === 'graph' && (
-              <div className="h-full">
+              <div className="h-full w-full animate-in fade-in duration-200">
                 <GraphVisualization graphData={result?.graph || null} />
+              </div>
+            )}
+
+            {activeTab === 'charts' && (
+              <div className="h-full w-full animate-in fade-in duration-200">
+                <ChartsTab
+                  nodes={result?.graph?.nodes || []}
+                  results={result?.results || {}}
+                  onRefresh={handleCalculate}
+                />
               </div>
             )}
           </div>
