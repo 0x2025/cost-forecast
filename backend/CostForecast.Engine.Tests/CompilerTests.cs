@@ -229,6 +229,113 @@ public class CompilerTests
     }
 
     [Fact]
+    public void Should_Support_Basic_If_Statement()
+    {
+        // Simple test: IF with constants only
+        var compiler = new DslCompiler();
+        var source = @"
+            x = 250000
+            result = If(x > 200000, 999, 111)
+        ";
+
+        var graph = compiler.Compile(source);
+        var evaluator = new GraphEvaluator();
+        var context = new CalculationContext();
+        var (results, _) = evaluator.Evaluate(graph, context);
+
+        results["x"].Should().Be(250000.0);
+        results["result"].Should().Be(999.0); // x > 200000 is true, so should return 999
+    }
+
+    [Fact]
+    public void Should_Support_If_With_Input_Assignment_Syntax()
+    {
+        // Simpler test using assignment syntax to isolate IF issue
+        var compiler = new DslCompiler();
+        var source = @"
+            revenue = Input(""revenue"")
+            total_monthly_revenue = revenue
+            management_fee_rate = 0.10
+
+            management_fee = If(total_monthly_revenue > 200000,
+                total_monthly_revenue * management_fee_rate,
+                total_monthly_revenue * 0.08
+            )
+        ";
+
+        var graph = compiler.Compile(source);
+        graph.Should().NotBeNull();
+
+        var evaluator = new GraphEvaluator();
+
+        // Test with revenue = 250000 (above threshold)
+        var context1 = new CalculationContext();
+        var inputs1 = new Dictionary<string, object> { { "revenue", 250000.0 } };
+        context1.AddInputProvider(new NamedInputProvider(inputs1));
+        var (results1, _) = evaluator.Evaluate(graph, context1);
+
+        // Debug: Check intermediate values
+        results1.Should().ContainKey("revenue");
+        results1["revenue"].Should().Be(250000.0);
+        
+        results1.Should().ContainKey("total_monthly_revenue");
+        results1["total_monthly_revenue"].Should().Be(250000.0);
+        
+        results1.Should().ContainKey("management_fee_rate");
+        results1["management_fee_rate"].Should().Be(0.10);
+        
+        results1.Should().ContainKey("management_fee");
+        
+        // Debug print
+        System.Diagnostics.Debug.WriteLine($"management_fee = {results1["management_fee"]}");
+        
+        // Expected: 250000 > 200000 is true, so 250000 * 0.10 = 25000
+        results1["management_fee"].Should().Be(25000.0);
+
+        // Test with revenue = 150000 (below threshold)
+        var context2 = new CalculationContext();
+        var inputs2 = new Dictionary<string, object> { { "revenue", 150000.0 } };
+        context2.AddInputProvider(new NamedInputProvider(inputs2));
+        var (results2, _) = evaluator.Evaluate(graph, context2);
+
+        // Expected: 150000 > 200000 is false, so 150000 * 0.08 = 12000
+        results2["management_fee"].Should().Be(12000.0);
+    }
+
+    [Fact]
+    public void Should_Support_If_With_Input_Declaration_Syntax()
+    {
+        // TDD Test: Reproduce user's exact DSL to identify the issue
+        var compiler = new DslCompiler();
+        var source = @"
+            revenue: Input(""revenue"")
+            total_monthly_revenue = revenue
+            management_fee_rate = 0.10
+
+            management_fee = If(total_monthly_revenue > 200000,
+                total_monthly_revenue * management_fee_rate,
+                total_monthly_revenue * 0.08
+            )
+        ";
+
+        var graph = compiler.Compile(source);
+        graph.Should().NotBeNull();
+
+        var evaluator = new GraphEvaluator();
+
+        // Test with revenue = 250000 (above threshold)
+        var context1 = new CalculationContext();
+        var inputs1 = new Dictionary<string, object> { { "revenue", 250000.0 } };
+        context1.AddInputProvider(new NamedInputProvider(inputs1));
+        var (results1, _) = evaluator.Evaluate(graph, context1);
+
+        // Expected: 250000 > 200000 is true, so 250000 * 0.10 = 25000
+        results1.Should().ContainKey("revenue");
+        results1["revenue"].Should().Be(250000.0);
+        results1["management_fee"].Should().Be(25000.0);
+    }
+
+    [Fact]
     public void Should_Compile_Range_With_Param()
     {
         // TDD Test for bug: Range with Param variable throws "Undefined variable" error

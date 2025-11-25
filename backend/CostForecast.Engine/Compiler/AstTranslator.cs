@@ -315,8 +315,9 @@ public class AstTranslator
             
             var funcNode = node.NamedChild(0);
             var funcName = GetText(funcNode).Trim();
+            var funcNameUpper = funcName.ToUpper();
             
-            if (funcName == "Input")
+            if (funcNameUpper == "INPUT")
             {
                  if (node.NamedChildCount < 2) throw new Exception("Input requires 1 argument.");
                  var argNode = node.NamedChild(1);
@@ -357,7 +358,7 @@ public class AstTranslator
                      throw new Exception($"Input argument must be a string literal. Found: {argNode.Kind}");
                  }
             }
-            else if (funcName == "Const")
+            else if (funcNameUpper == "CONST")
             {
                  if (node.NamedChildCount < 2) throw new Exception("Const requires 1 argument.");
                  var argNode = node.NamedChild(1);
@@ -383,15 +384,7 @@ public class AstTranslator
                 var flatValues = new List<double>();
                 foreach(var val in rawValues)
                 {
-                    if (val is IEnumerable<double> doubles)
-                    {
-                        flatValues.AddRange(doubles);
-                    }
-                    else if (val is IEnumerable<object> objs)
-                    {
-                        foreach(var o in objs) flatValues.Add(ConvertToDouble(o));
-                    }
-                    else if (val is Array arr)
+                    if (val is double[] arr)
                     {
                          foreach(var o in arr) flatValues.Add(ConvertToDouble(o));
                     }
@@ -401,12 +394,14 @@ public class AstTranslator
                     }
                 }
                 
-                if (funcName == "SUM") return flatValues.Sum();
-                if (funcName == "AVERAGE") return flatValues.Count > 0 ? flatValues.Average() : 0.0;
-                if (funcName == "MAX") return flatValues.Count > 0 ? flatValues.Max() : 0.0;
-                if (funcName == "MIN") return flatValues.Count > 0 ? flatValues.Min() : 0.0;
+                var funcNameUpper = funcName.ToUpper();
                 
-                if (funcName == "IF")
+                if (funcNameUpper == "SUM") return flatValues.Sum();
+                if (funcNameUpper == "AVERAGE") return flatValues.Count > 0 ? flatValues.Average() : 0.0;
+                if (funcNameUpper == "MAX") return flatValues.Count > 0 ? flatValues.Max() : 0.0;
+                if (funcNameUpper == "MIN") return flatValues.Count > 0 ? flatValues.Min() : 0.0;
+                
+                if (funcNameUpper == "IF")
                 {
                     // IF(condition, trueVal, falseVal)
                     // values[0] is condition (1.0 is true, 0.0 is false)
@@ -419,7 +414,7 @@ public class AstTranslator
                 return 0.0;
             };
             
-            if (funcName == "Range")
+            if (funcNameUpper == "RANGE")
             {
                  if (node.NamedChildCount < 3) throw new Exception("Range requires 2 arguments: source and target.");
                  var sourceNode = node.NamedChild(1);
@@ -752,7 +747,7 @@ public class AstTranslator
         {
             var funcNode = node.NamedChild(0);
             var funcName = GetText(funcNode).Trim();
-            return funcName == "Range";
+            return funcName.ToUpper() == "RANGE";
         }
 
         return false;
