@@ -104,6 +104,46 @@ public class AstTranslator
                         Console.WriteLine($"  Detected Range operation for '{name}'");
                         node = new RangeNode(name, _ => null, _ => null);
                     }
+                    else if (IsInputOperation(content))
+                    {
+                        // Create InputNode directly (same as declaration syntax)
+                        Console.WriteLine($"  Detected Input operation for '{name}'");
+                        
+                        // Extract the key from Input("key") argument
+                        // content is the function_call node
+                        var unwrapped = content;
+                        while (unwrapped.Kind == "expression")
+                        {
+                            unwrapped = unwrapped.NamedChild(0);
+                        }
+                        
+                        string key = "";
+                        if (unwrapped.Kind == "function_call" && unwrapped.NamedChildCount >= 2)
+                        {
+                            var argNode = unwrapped.NamedChild(1); // First argument
+                            
+                            // Unwrap expression wrapper if present
+                            while (argNode.Kind == "expression" || argNode.Kind == "parenthesized_expression")
+                            {
+                                if (argNode.NamedChildCount > 0)
+                                    argNode = argNode.NamedChild(0);
+                                else
+                                    break;
+                            }
+                            
+                            if (argNode.Kind == "string")
+                            {
+                                var text = GetText(argNode);
+                                key = text.Substring(1, text.Length - 2);
+                            }
+                            else if (argNode.Kind == "identifier")
+                            {
+                                key = GetText(argNode);
+                            }
+                        }
+                        
+                        node = new InputNode(name, key);
+                    }
                     else
                     {
                         // Placeholder calculation, will be replaced
@@ -117,6 +157,7 @@ public class AstTranslator
                         assignments[name] = content; // Store the content node for Pass 2
                     }
                 }
+
                 else if (stmt.Kind == "declaration")
                 {
                     var name = GetText(stmt.ChildByFieldName("name"));
@@ -752,6 +793,27 @@ public class AstTranslator
 
         return false;
     }
+
+    private bool IsInputOperation(Node node)
+    {
+        // Unwrap expression wrappers
+        while (node.Kind == "expression")
+        {
+            if (node.NamedChildCount < 1) return false;
+            node = node.NamedChild(0);
+        }
+
+        // Check if it's a function call to "Input"
+        if (node.Kind == "function_call" && node.NamedChildCount >= 1)
+        {
+            var funcNode = node.NamedChild(0);
+            var funcName = GetText(funcNode).Trim();
+            return funcName.ToUpper() == "INPUT";
+        }
+
+        return false;
+    }
+
 
     private (Func<IEvaluationContext, object>, Func<IEvaluationContext, object>, List<GraphNode>) ParseRangeExpression(
         Node node, 

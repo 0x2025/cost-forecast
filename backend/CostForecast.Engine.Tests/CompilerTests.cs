@@ -168,14 +168,14 @@ public class CompilerTests
         var graph = compiler.Compile(source);
 
         Assert.NotNull(graph);
-        // The variable 'inflation' is a FormulaNode
+        // The variable 'inflation' is now directly an InputNode
         var inflationVar = graph.GetNode("inflation");
-        Assert.IsType<FormulaNode>(inflationVar);
+        Assert.IsType<InputNode>(inflationVar);
+        Assert.Equal("inflation", ((InputNode)inflationVar).Key);
 
-        // The input node is created with $Input_ prefix
+        // The redundant $Input_ node should NOT exist
         var inputNode = graph.GetNode("$Input_inflation");
-        Assert.IsType<InputNode>(inputNode);
-        Assert.Equal("inflation", ((InputNode)inputNode).Key);
+        Assert.Null(inputNode);
     }
 
     [Fact]
@@ -218,9 +218,12 @@ public class CompilerTests
         y.Dependencies.Should().ContainSingle()
             .Which.Should().BeSameAs(x);
 
-        inflation.Should().NotBeNull().And.BeOfType<FormulaNode>();
-        inputNode.Should().NotBeNull().And.BeOfType<InputNode>()
+        // inflation should be an InputNode directly
+        inflation.Should().NotBeNull().And.BeOfType<InputNode>()
             .Which.Key.Should().Be("inflation");
+            
+        // Redundant node should not exist
+        inputNode.Should().BeNull();
 
         total.Should().NotBeNull().And.BeOfType<FormulaNode>();
         total.Dependencies.Should().Contain(x);

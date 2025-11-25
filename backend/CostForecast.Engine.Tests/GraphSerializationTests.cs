@@ -122,14 +122,14 @@ public class GraphSerializationTests
         // Act
         var graphDto = GraphSerializer.SerializeGraph(graph);
 
-        // Assert - Input nodes are created with $Input_ prefix
-        graphDto.Nodes.Should().HaveCount(5); // price, tax_rate, total (formulas) + 2 input nodes
+        // Assert - Input nodes are created directly without $Input_ prefix
+        graphDto.Nodes.Should().HaveCount(3); // price (input), tax_rate (input), total (formula)
         
         var inputNodes = graphDto.Nodes.Where(n => n.Type == "input").ToList();
         inputNodes.Should().HaveCount(2);
         
         var formulaNodes = graphDto.Nodes.Where(n => n.Type == "formula").ToList();
-        formulaNodes.Should().HaveCount(3); // price, tax_rate, total are all formulas
+        formulaNodes.Should().HaveCount(1); // only total is a formula
         
         // Verify input nodes exist with correct metadata
         graphDto.Nodes.Should().Contain(n => n.Type == "input" && n.Metadata != null && n.Metadata.ContainsKey("key"));
@@ -177,19 +177,19 @@ public class GraphSerializationTests
         // Act
         var graphDto = GraphSerializer.SerializeGraph(graph);
 
-        // Assert - pi is constant, radius and area are formulas, plus input node
-        graphDto.Nodes.Should().HaveCount(4);
+        // Assert - pi is constant, radius is input, area is formula
+        graphDto.Nodes.Should().HaveCount(3);
         
         // pi is wrapped in a formula (even though it's created with Const)
         var piNode = graphDto.Nodes.First(n => n.Id == "pi");
         piNode.Should().NotBeNull();
         
-        // radius is a formula that wraps Input()
+        // radius is now directly an input node
         var radiusNode = graphDto.Nodes.First(n => n.Id == "radius");
-        radiusNode.Type.Should().Be("formula");
+        radiusNode.Type.Should().Be("input");
         
-        // There should be an input node with $Input_ prefix
-        graphDto.Nodes.Should().Contain(n => n.Type == "input");
+        // There should NOT be an input node with $Input_ prefix
+        graphDto.Nodes.Should().NotContain(n => n.Id.StartsWith("$Input_"));
     }
 
     [Fact]
@@ -207,14 +207,13 @@ public class GraphSerializationTests
         // Act
         var graphDto = GraphSerializer.SerializeGraph(graph);
 
-        // Assert - discount is formula, price is constant, final_price is formula, plus input node
-        graphDto.Nodes.Should().HaveCount(4);
+        // Assert - discount is input, price is constant, final_price is formula
+        graphDto.Nodes.Should().HaveCount(3);
         
         // Verify we have the right types
         graphDto.Nodes.Should().Contain(n => n.Id == "price" && n.Type == "constant");
-        graphDto.Nodes.Should().Contain(n => n.Id == "discount" && n.Type == "formula");
+        graphDto.Nodes.Should().Contain(n => n.Id == "discount" && n.Type == "input");
         graphDto.Nodes.Should().Contain(n => n.Id == "final_price" && n.Type == "formula");
-        graphDto.Nodes.Should().Contain(n => n.Type == "input");
     }
 
     [Fact]
@@ -262,8 +261,8 @@ public class GraphSerializationTests
         // Act
         var graphDto = GraphSerializer.SerializeGraph(graph);
 
-        // Assert - const_val is constant, input_val and formula_val are formulas, plus input node
-        graphDto.Nodes.Should().HaveCountGreaterThanOrEqualTo(3);
+        // Assert - const_val is constant, input_val is input, formula_val is formula
+        graphDto.Nodes.Should().HaveCount(3);
         graphDto.Nodes.Should().Contain(n => n.Type == "constant");
         graphDto.Nodes.Should().Contain(n => n.Type == "input");
         graphDto.Nodes.Should().Contain(n => n.Type == "formula");

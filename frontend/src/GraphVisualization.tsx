@@ -11,7 +11,7 @@ import {
     ConnectionLineType,
     Handle,
     Position,
-    Panel,
+
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { GraphData } from './api';
@@ -144,9 +144,9 @@ const getNodeStyle = (type: string) => {
 export function GraphVisualization({ graphData }: GraphVisualizationProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-    const [algorithm, setAlgorithm] = useState<string>('layered');
-    const [edgeRouting, setEdgeRouting] = useState<string>('ORTHOGONAL');
-    const [connectionType, setConnectionType] = useState<ConnectionLineType>(ConnectionLineType.Bezier);
+    const [algorithm] = useState<string>('layered');
+    const [edgeRouting] = useState<string>('ORTHOGONAL');
+    const [connectionType] = useState<ConnectionLineType>(ConnectionLineType.Bezier);
     const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
     const [nodeChildrenMap, setNodeChildrenMap] = useState<Map<string, string[]>>(new Map());
     const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
@@ -392,64 +392,7 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
                     <Background color="#cbd5e1" gap={20} size={1} />
                     <Controls className="!bg-white !border-slate-200 !shadow-sm !rounded-lg overflow-hidden" />
 
-                    {/* Floating Toolbar */}
-                    <Panel position="top-right" className="m-4">
-                        <div className="bg-white/90 backdrop-blur-sm p-2 rounded-lg shadow-sm border border-slate-200 flex flex-col gap-3 w-48">
-                            <div className="flex flex-col gap-1">
-                                <label htmlFor="algorithm" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                    Layout
-                                </label>
-                                <select
-                                    id="algorithm"
-                                    value={algorithm}
-                                    onChange={(e) => setAlgorithm(e.target.value)}
-                                    className="w-full px-2 py-1 text-xs border border-slate-200 rounded hover:border-cyan-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none bg-white transition-colors"
-                                >
-                                    <option value="layered">Layered</option>
-                                    <option value="force">Force</option>
-                                    <option value="stress">Stress</option>
-                                    <option value="mrtree">Tree</option>
-                                    <option value="radial">Radial</option>
-                                    <option value="disco">DisCo</option>
-                                </select>
-                            </div>
 
-                            <div className="flex flex-col gap-1">
-                                <label htmlFor="edgeRouting" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                    Routing
-                                </label>
-                                <select
-                                    id="edgeRouting"
-                                    value={edgeRouting}
-                                    onChange={(e) => setEdgeRouting(e.target.value)}
-                                    className="w-full px-2 py-1 text-xs border border-slate-200 rounded hover:border-cyan-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none bg-white transition-colors"
-                                >
-                                    <option value="ORTHOGONAL">Orthogonal</option>
-                                    <option value="POLYLINE">Polyline</option>
-                                    <option value="SPLINES">Splines</option>
-                                    <option value="UNDEFINED">Direct</option>
-                                </select>
-                            </div>
-
-                            <div className="flex flex-col gap-1">
-                                <label htmlFor="connectionType" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                    Style
-                                </label>
-                                <select
-                                    id="connectionType"
-                                    value={connectionType}
-                                    onChange={(e) => setConnectionType(e.target.value as ConnectionLineType)}
-                                    className="w-full px-2 py-1 text-xs border border-slate-200 rounded hover:border-cyan-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none bg-white transition-colors"
-                                >
-                                    <option value={ConnectionLineType.Bezier}>Bezier</option>
-                                    <option value={ConnectionLineType.Straight}>Straight</option>
-                                    <option value={ConnectionLineType.Step}>Step</option>
-                                    <option value={ConnectionLineType.SmoothStep}>Smooth Step</option>
-                                    <option value={ConnectionLineType.SimpleBezier}>Simple Bezier</option>
-                                </select>
-                            </div>
-                        </div>
-                    </Panel>
                 </ReactFlow>
             </div>
         </div>

@@ -8,6 +8,7 @@ import { GraphVisualization } from './GraphVisualization';
 import { ChartsTab } from './components/charts/ChartsTab';
 import { HelpPanel } from './components/HelpPanel';
 import { AIGenerator } from './components/AIGenerator';
+import { formatNumber, parseFormattedNumber } from './utils/formatting';
 
 const STORAGE_KEY_SOURCE = 'costforecast_source';
 const STORAGE_KEY_INPUTS = 'costforecast_inputs';
@@ -180,9 +181,12 @@ function App() {
       const inputRecord: Record<string, any> = {};
       inputs.forEach(row => {
         if (row.key.trim()) {
-          // Try to parse as number if possible
-          const num = parseFloat(row.value);
-          inputRecord[row.key] = isNaN(num) ? row.value : num;
+          // Try to parse as number if possible, stripping commas first
+          const rawValue = parseFormattedNumber(row.value);
+          const num = parseFloat(rawValue);
+          // If it parses as a valid number and the original wasn't empty/whitespace, use the number
+          // Otherwise use the original value (it might be a JSON string or expression)
+          inputRecord[row.key] = (isNaN(num) || rawValue.trim() === '') ? row.value : num;
         }
       });
 
@@ -501,7 +505,7 @@ function App() {
                             {Object.entries(result.results).map(([key, value], idx) => (
                               <tr key={key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-700">{key}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono text-right">{String(value)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono text-right">{formatNumber(value)}</td>
                               </tr>
                             ))}
                           </tbody>
