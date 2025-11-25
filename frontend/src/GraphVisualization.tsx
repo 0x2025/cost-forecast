@@ -149,7 +149,6 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
     const [connectionType] = useState<ConnectionLineType>(ConnectionLineType.Bezier);
     const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
     const [nodeChildrenMap, setNodeChildrenMap] = useState<Map<string, string[]>>(new Map());
-    const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set()); // Store complete layout
     const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
     const [fullLayoutNodes, setFullLayoutNodes] = useState<Node[]>([]); // Store complete layout
 
@@ -211,29 +210,6 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
         });
 
         return hasExpandedParent;
-    };
-
-    // Get all nodes that depend on the given node (recursively)
-    const getDependentNodes = (nodeId: string, graphData: GraphData): Set<string> => {
-        const dependents = new Set<string>();
-        const visited = new Set<string>();
-
-        const traverse = (id: string) => {
-            if (visited.has(id)) return;
-            visited.add(id);
-
-            // Find all edges where this node is the source (i.e., other nodes depend on it)
-            const childEdges = graphData.edges.filter(e => e.source === id);
-
-            childEdges.forEach(edge => {
-                const dependent = edge.target;
-                dependents.add(dependent);
-                traverse(dependent); // Recursively find transitive dependents
-            });
-        };
-
-        traverse(nodeId);
-        return dependents;
     };
 
     // Build hierarchy only when graphData changes
@@ -328,27 +304,13 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
         // Update nodes with collapse state and filter hidden ones
         const visibleNodes = fullLayoutNodes
             .filter(node => visibleNodeIds.includes(node.id))
-            .map(node => {
-                const isHighlighted = highlightedNodes.has(node.id);
-                const nodeType = typeof node.data.type === 'string' ? node.data.type : 'default';
-                const baseStyle = getNodeStyle(nodeType);
-
-                return {
-                    ...node,
-                    data: {
-                        ...node.data,
-                        isCollapsed: collapsedNodes.has(node.id),
-                    },
-                    style: isHighlighted
-                        ? {
-                            ...baseStyle,
-                            boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.5), 0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                            transform: 'scale(1.05)',
-                            zIndex: 10,
-                        }
-                        : baseStyle,
-                };
-            });
+            .map(node => ({
+                ...node,
+                data: {
+                    ...node.data,
+                    isCollapsed: collapsedNodes.has(node.id),
+                },
+            }));
 
         // Filter visible edges
         const visibleEdges: Edge[] = graphData.edges
@@ -371,7 +333,7 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
         setNodes(visibleNodes);
         setEdges(visibleEdges);
 
-    }, [fullLayoutNodes, collapsedNodes, highlightedNodes, graphData, connectionType, setNodes, setEdges]);
+    }, [fullLayoutNodes, collapsedNodes, graphData, connectionType, setNodes, setEdges]);
 
     if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
         return (
@@ -414,9 +376,6 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
                         <option value="stress">Stress</option>
                     </select>
                 </label>
-                <div className="text-xs text-slate-500 ml-auto">
-                    Click a node to highlight its dependents
-                </div>
             </div>
 
             {/* Graph */}
@@ -427,20 +386,6 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
                     onNodesChange={onNodesChange}
                     onEdgesChange={onEdgesChange}
                     onNodeClick={(_event, node) => {
-                        // Get dependent nodes (child nodes that depend on this node)
-                        const dependents = getDependentNodes(node.id, graphData);
-
-                        // Toggle highlighting
-                        if (highlightedNodes.size > 0 && highlightedNodes.has(node.id)) {
-                            // Clear highlighting if clicking the same highlighted set
-                            setHighlightedNodes(new Set());
-                        } else {
-                            // Highlight clicked node and its dependents
-                            const newHighlighted = new Set<string>([node.id, ...Array.from(dependents)]);
-                            setHighlightedNodes(newHighlighted);
-                        }
-
-                        // Keep existing collapse/expand functionality for nodes with children
                         const children = nodeChildrenMap.get(node.id) || [];
                         if (children.length > 0) {
                             const newCollapsed = new Set(collapsedNodes);

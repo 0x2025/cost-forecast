@@ -242,6 +242,22 @@ public class GraphEvaluator
             }
         }
 
+        // Collect all template nodes (TargetDependencies of RangeNodes)
+        // These are nodes that were used as templates for Range expansion but are no longer directly referenced
+        // by the RangeNode (since it clears dependencies) and should not be considered roots.
+        var templateNodes = new HashSet<GraphNode>();
+        foreach (var node in allNodes)
+        {
+            if (node is RangeNode rangeNode)
+            {
+                foreach (var dep in rangeNode.TargetDependencies)
+                {
+                    templateNodes.Add(dep);
+                }
+            }
+        }
+
+
         // Find Roots: nodes with no dependents, excluding InputNodes, system nodes, and Param declarations
         // Param declarations (qty, price) are templates and should not be considered roots
         var roots = allNodes.Where(n => 
@@ -249,8 +265,10 @@ public class GraphEvaluator
             !(n is InputNode) &&
             !(n is ParamNode) &&
             !n.Name.StartsWith("$") &&
+            !templateNodes.Contains(n) && // Exclude template nodes
             !(n is FormulaNode fn && fn.Calculation != null && IsParamNode(n, allNodes))
         ).ToList();
+
 
         // Traverse from roots to find all reachable nodes
         var reachable = new HashSet<GraphNode>();
