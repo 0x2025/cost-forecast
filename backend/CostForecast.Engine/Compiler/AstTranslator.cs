@@ -287,11 +287,21 @@ public class AstTranslator
                 var r = ConvertToDouble(rightCalc(ctx));
                 return op switch
                 {
+                    // Arithmetic operators
                     "+" => l + r,
                     "-" => l - r,
                     "*" => l * r,
                     "/" => l / r,
                     "^" => Math.Pow(l, r),
+                    
+                    // Comparison operators (Excel-style, return 1.0 for true, 0.0 for false)
+                    ">" => l > r ? 1.0 : 0.0,
+                    "<" => l < r ? 1.0 : 0.0,
+                    ">=" => l >= r ? 1.0 : 0.0,
+                    "<=" => l <= r ? 1.0 : 0.0,
+                    "=" => Math.Abs(l - r) < 1e-9 ? 1.0 : 0.0,  // Equality with reasonable floating point tolerance
+                    "<>" => Math.Abs(l - r) >= 1e-9 ? 1.0 : 0.0, // Not equal (Excel-style)
+                    
                     _ => throw new NotImplementedException($"Operator {op}")
                 };
             };

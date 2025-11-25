@@ -1,11 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { api, type CalculationResponse } from './api';
-import { useTreeSitter, treeSitterPlugin, myHighlightStyle, dslAutocomplete } from './useTreeSitter';
+import { useTreeSitter, treeSitterPlugin, myHighlightStyle, dslAutocomplete, extractInputDeclarations } from './useTreeSitter';
 import { syntaxHighlighting } from '@codemirror/language';
 import { InputGrid, type InputRow } from './InputGrid';
 import { GraphVisualization } from './GraphVisualization';
 import { ChartsTab } from './components/charts/ChartsTab';
+import { HelpPanel } from './components/HelpPanel';
+import { AIGenerator } from './components/AIGenerator';
 
 const STORAGE_KEY_SOURCE = 'costforecast_source';
 const STORAGE_KEY_INPUTS = 'costforecast_inputs';
@@ -67,6 +69,8 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'results' | 'graph' | 'charts'>('results');
   const [showScenarios, setShowScenarios] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showAI, setShowAI] = useState(false);
 
   const { parser } = useTreeSitter();
 
@@ -131,6 +135,44 @@ function App() {
     }
   };
 
+  const handleDetectInputs = () => {
+    // Extract Input() declarations from DSL
+    const detectedKeys = extractInputDeclarations(parser, source);
+
+    if (detectedKeys.size === 0) {
+      // No inputs detected - silently return
+      return;
+    }
+
+    // Create a map of existing inputs for quick lookup
+    const existingInputsMap = new Map<string, string>();
+    inputs.forEach(row => {
+      if (row.key.trim()) {
+        existingInputsMap.set(row.key, row.value);
+      }
+    });
+
+    // Merge: add detected inputs, preserve existing values
+    const mergedInputs: InputRow[] = [];
+
+    // First, add all existing inputs (preserve order and manual entries)
+    inputs.forEach(row => {
+      if (row.key.trim()) {
+        mergedInputs.push(row);
+      }
+    });
+
+    // Then, add newly detected inputs that don't already exist
+    detectedKeys.forEach(key => {
+      if (!existingInputsMap.has(key)) {
+        mergedInputs.push({ key, value: '' });
+      }
+    });
+
+    setInputs(mergedInputs);
+  };
+
+
   const handleCalculate = async () => {
     setLoading(true);
     try {
@@ -145,15 +187,53 @@ function App() {
       });
 
       const data = await api.calculate(source, inputRecord);
-      setResult(data);
+
+      // Validate API response
+      if (!data) {
+        console.error('API returned null/undefined response');
+        setResult({
+          results: {},
+          graph: null,
+          errors: [{ message: 'API returned no data' }]
+        });
+        return;
+      }
+
+      // Ensure results object exists
+      const safeResults = data.results || {};
+
+      // Ensure errors array exists
+      const safeErrors = Array.isArray(data.errors) ? data.errors : [];
+
+      // Validate graph structure if present
+      let safeGraph = data.graph;
+      if (safeGraph) {
+        // Ensure nodes and edges arrays exist
+        if (!Array.isArray(safeGraph.nodes)) {
+          console.warn('API response graph.nodes is not an array, setting to empty array');
+          safeGraph = { ...safeGraph, nodes: [] };
+        }
+        if (!Array.isArray(safeGraph.edges)) {
+          console.warn('API response graph.edges is not an array, setting to empty array');
+          safeGraph = { ...safeGraph, edges: [] };
+        }
+      }
+
+      setResult({
+        results: safeResults,
+        graph: safeGraph,
+        errors: safeErrors
+      });
+
       if (activeTab === 'results' && data.graph) {
         // Optional: auto-switch to graph if desired, but sticking to results is safer
       }
     } catch (e) {
+      console.error('Exception during calculation:', e);
       setResult({
         results: {},
         graph: null,
-        errors: [{ message: 'Calculation failed' }]
+        errors: [{ message: e instanceof Error ? e.message : 'Calculation failed' }]
       });
     } finally {
       setLoading(false);
@@ -172,12 +252,36 @@ function App() {
               </svg>
             </div>
             <div>
-              <h1 className="font-serif font-semibold text-2xl text-slate-900 tracking-tight leading-none">CostForecast</h1>
+              <h1 className="font-serif font-semibold text-2xl text-slate-900 tracking-tight leading-none">Cost Forecast</h1>
               <p className="text-[9px] text-slate-500 uppercase tracking-[0.15em] font-medium mt-0.5">The cost modeling that you can trust</p>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowAI(!showAI)}
+            className={`text-sm px-3 py-2 transition-colors flex items-center gap-2 font-medium rounded-md ${showAI ? 'bg-yellow-100 text-yellow-800' : 'text-slate-600 hover:bg-slate-100'}`}
+            title="AI Assistant"
+          >
+            <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            AI Assist
+          </button>
+
+          <button
+            onClick={() => setShowHelp(!showHelp)}
+            className={`text-sm px-3 py-2 transition-colors flex items-center gap-2 font-medium rounded-md ${showHelp ? 'bg-blue-100 text-blue-800' : 'text-slate-600 hover:bg-slate-100'}`}
+            title="DSL Guide"
+          >
+            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Help
+          </button>
+
+          <div className="h-6 w-px bg-slate-300"></div>
+
           <button
             onClick={() => setShowScenarios(!showScenarios)}
             className={`text-sm px-4 py-2 transition-colors flex items-center gap-2 font-medium border ${showScenarios ? 'bg-slate-900 text-white border-slate-900' : 'text-slate-700 border-slate-300 hover:border-slate-900 hover:text-slate-900'}`}
@@ -198,6 +302,10 @@ function App() {
       </header>
 
       <div className="flex flex-1 overflow-hidden relative">
+        {/* Overlays */}
+        {showHelp && <HelpPanel onClose={() => setShowHelp(false)} />}
+        {showAI && <AIGenerator onClose={() => setShowAI(false)} />}
+
         {/* Scenarios Drawer */}
         {showScenarios && (
           <div className="absolute top-0 right-0 bottom-0 w-80 bg-white shadow-2xl z-20 border-l border-slate-200 flex flex-col animate-in slide-in-from-right duration-200">
@@ -260,6 +368,16 @@ function App() {
                 </svg>
                 Variables & Inputs
               </h2>
+              <button
+                onClick={handleDetectInputs}
+                className="text-xs px-3 py-1.5 border border-slate-300 bg-white text-slate-700 hover:border-slate-900 hover:bg-slate-50 transition-all font-medium flex items-center gap-1.5 rounded"
+                title="Auto-detect Input() from code"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Detect Inputs
+              </button>
             </div>
             <div className="flex-1 overflow-hidden p-0">
               <InputGrid data={inputs} onChange={setInputs} />

@@ -286,6 +286,102 @@ function extractVariables(parser: Parser | null, text: string): Set<string> {
     return variables;
 }
 
+// Extract Input() declaration keys from the parsed tree
+export function extractInputDeclarations(parser: Parser | null, text: string): Set<string> {
+    const inputKeys = new Set<string>();
+
+    if (!parser) {
+        console.warn('extractInputDeclarations: parser is null');
+        return inputKeys;
+    }
+
+    try {
+        const tree = parser.parse(text);
+        const cursor = tree.walk();
+
+        let reachedRoot = false;
+        while (!reachedRoot) {
+            const node = cursor.currentNode;
+            const nodeType = node.type;
+
+            // Handle declaration syntax: var: Input("key")
+            // The DSL grammar parses this as an "input_def" node
+            if (nodeType === 'input_def') {
+                // Look for the string argument within the input_def
+                for (let i = 0; i < node.childCount; i++) {
+                    const child = node.child(i);
+                    if (child && child.type === 'string') {
+                        // Extract string content (remove quotes)
+                        let keyText = text.substring(child.startIndex, child.endIndex);
+                        // Remove surrounding quotes
+                        keyText = keyText.replace(/^["']|["']$/g, '');
+                        if (keyText) {
+                            inputKeys.add(keyText);
+                            break;
+                        }
+                    }
+                }
+            }
+
+
+            // Handle assignment syntax: var = Input("key")
+            // The DSL grammar parses this as a "function_call" node
+            // Tree structure: function_call -> expression -> string
+            else if (nodeType === 'function_call') {
+                const functionNameNode = node.child(0);
+                const functionName = functionNameNode ? text.substring(functionNameNode.startIndex, functionNameNode.endIndex) : '';
+
+                if (functionName === 'Input') {
+                    // Look for expression children (the arguments to the function)
+                    for (let i = 0; i < node.childCount; i++) {
+                        const child = node.child(i);
+                        if (child && child.type === 'expression') {
+                            // Now look for string within the expression
+                            for (let j = 0; j < child.childCount; j++) {
+                                const grandchild = child.child(j);
+                                if (grandchild && grandchild.type === 'string') {
+                                    let keyText = text.substring(grandchild.startIndex, grandchild.endIndex);
+                                    keyText = keyText.replace(/^["']|["']$/g, '');
+                                    if (keyText) {
+                                        inputKeys.add(keyText);
+                                        break;
+                                    }
+                                }
+                            }
+                            break; // Found the expression, no need to continue
+                        }
+                    }
+                }
+            }
+
+            // Continue traversing
+            if (cursor.gotoFirstChild()) continue;
+            if (cursor.gotoNextSibling()) continue;
+
+            let retracing = true;
+            while (retracing) {
+                if (!cursor.gotoParent()) {
+                    retracing = false;
+                    reachedRoot = true;
+                } else {
+                    if (cursor.gotoNextSibling()) {
+                        retracing = false;
+                    }
+                }
+            }
+        }
+
+        tree.delete();
+    } catch (e) {
+        console.error("Error extracting input declarations:", e);
+    }
+
+    return inputKeys;
+}
+
+
+
+
 // Create autocomplete extension
 export function dslAutocomplete(parser: Parser | null) {
     return autocompletion({
