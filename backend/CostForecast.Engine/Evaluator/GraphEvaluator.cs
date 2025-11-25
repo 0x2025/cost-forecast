@@ -54,6 +54,10 @@ public class GraphEvaluator
                 else if (sourceVal is System.Collections.IEnumerable en) items = en.Cast<object>();
                 else items = new[] { sourceVal };
                 
+                // 1. Identify the Volatile Subgraph (nodes that need to be cloned per item)
+                // These are nodes in the TargetDependencies closure that are ParamNodes or depend on them.
+                var volatileNodes = GetVolatileSubgraph(rangeNode.TargetDependencies);
+
                 int index = 0;
                 foreach (var item in items)
                 {
@@ -67,7 +71,7 @@ public class GraphEvaluator
                         foreach (var kvp in dict)
                         {
                             childCtx.Set(kvp.Key, kvp.Value);
-                            paramDeps.Add(kvp.Key);  // Track which params were populated
+                            paramDeps.Add(kvp.Key);
                         }
                     }
                     else if (item is System.Text.Json.JsonElement jsonElement && jsonElement.ValueKind == System.Text.Json.JsonValueKind.Object)
@@ -87,19 +91,79 @@ public class GraphEvaluator
                         }
                     }
                     
-                    // Evaluate target expression for this item
+                    // Evaluate target expression for this item (final result)
                     var resultObj = rangeNode.TargetCalculation(childCtx);
                     var resultValue = Convert.ToDouble(resultObj);
                     resultsList.Add(resultValue);
                     
-                    // Create item node and add to evaluated graph
+                    // --- Subgraph Expansion ---
+                    
+                    // Map original nodes to cloned nodes for this iteration
+                    var nodeMap = new Dictionary<GraphNode, GraphNode>();
+                    
+                    // Clone all volatile nodes
+                    foreach (var original in volatileNodes)
+                    {
+                        var clonedName = $"{original.Name}({index + 1})";
+                        
+                        GraphNode cloned = original switch
+                        {
+                            ParamNode p => new ParamNode(clonedName, p.Calculation),
+                            FormulaNode f => new FormulaNode(clonedName, f.Calculation, f.Expression),
+                            RangeNode r => new RangeNode(clonedName, r.SourceCalculation, r.TargetCalculation, r.Expression),
+                            RangeItemNode ri => new RangeItemNode(clonedName, ri.Index, ri.Result, ri.ItemValues), // Nested ranges
+                            _ => throw new NotSupportedException($"Unexpected volatile node type: {original.GetType().Name}")
+                        };
+                        
+                        nodeMap[original] = cloned;
+                        
+                        // Only add if not already in graph (for nested ranges, nodes might already exist)
+                        if (evaluatedGraph.GetNode(clonedName) == null)
+                        {
+                            evaluatedGraph.AddNode(cloned);
+                        }
+                        else
+                        {
+                            // Use the existing node instead
+                            cloned = evaluatedGraph.GetNode(clonedName)!;
+                            nodeMap[original] = cloned;
+                        }
+                        
+                        // Calculate and store value for the cloned node
+                        if (original is ParamNode originalParamNode)
+                        {
+                             results[clonedName] = originalParamNode.Calculation(childCtx);
+                        }
+                        else if (original is FormulaNode originalFormulaNode)
+                        {
+                             results[clonedName] = originalFormulaNode.Calculation(childCtx);
+                        }
+                    }
+                    
+                    // Rewire dependencies for cloned nodes
+                    foreach (var original in volatileNodes)
+                    {
+                        var cloned = nodeMap[original];
+                        foreach (var dep in original.Dependencies)
+                        {
+                            if (volatileNodes.Contains(dep))
+                            {
+                                // Dependency is also volatile -> point to its clone
+                                cloned.Dependencies.Add(nodeMap[dep]);
+                            }
+                            else
+                            {
+                                // Dependency is global/static -> point to original
+                                cloned.Dependencies.Add(dep);
+                            }
+                        }
+                    }
+
+                    // Create RangeItemNode
                     var itemNodeName = $"{node.Name}({index + 1})";
                     
                     // Capture item values for metadata
                     var currentItemValues = new Dictionary<string, object>();
-                    // We need to reconstruct item values from childCtx or pass them through
-                    // Since childCtx is populated, we can't easily extract just the item values without tracking them
-                    // But we tracked paramDeps, which are the keys.
                     foreach (var key in paramDeps)
                     {
                         currentItemValues[key] = childCtx.Get(key);
@@ -109,26 +173,18 @@ public class GraphEvaluator
                     evaluatedGraph.AddNode(itemNode);
                     itemNodes.Add(itemNode);
                     
-                    // Add edges from item to params
-                    // Add edges from item to params
-                    foreach (var paramName in paramDeps)
+                    // Link ItemNode to the Roots of the cloned subgraph
+                    // The "Roots" are the clones of the RangeNode's TargetDependencies
+                    foreach (var targetDep in rangeNode.TargetDependencies)
                     {
-                        // Instead of linking to the global Param node, we create a specific node for this item's parameter
-                        // This ensures the graph shows the breakdown per item (e.g., qty(1), price(1))
-                        var paramValue = childCtx.Get(paramName);
-                        var paramNodeName = $"{paramName}({index + 1})";
-                        
-                        // Create a ConstantNode to represent this specific value
-                        // We use ConstantNode because for this specific item iteration, it is a fixed value
-                        var itemParamNode = new ConstantNode(paramNodeName, paramValue);
-                        
-                        // Add to graph if not already present (though names should be unique per item)
-                        if (evaluatedGraph.GetNode(paramNodeName) == null)
+                        if (volatileNodes.Contains(targetDep))
                         {
-                            evaluatedGraph.AddNode(itemParamNode);
+                            itemNode.Dependencies.Add(nodeMap[targetDep]);
                         }
-                        
-                        itemNode.Dependencies.Add(itemParamNode);
+                        else
+                        {
+                            itemNode.Dependencies.Add(targetDep);
+                        }
                     }
                     
                     index++;
@@ -137,8 +193,7 @@ public class GraphEvaluator
                 // Store result array
                 results[node.Name] = resultsList.ToArray();
                 
-                // Clear original dependencies (source and target template)
-                // We only want to show the breakdown (item nodes) in the evaluated graph
+                // Clear original dependencies
                 rangeNode.Dependencies.Clear();
                 
                 // Re-add item nodes as dependencies
@@ -384,5 +439,47 @@ public class GraphEvaluator
         
         // Fallback to Convert for other IConvertible types
         return System.Convert.ToDouble(value);
+    }
+
+    /// <summary>
+    /// Identifies the subgraph of nodes that are "volatile" (depend on ParamNodes or are ParamNodes).
+    /// These nodes need to be cloned for each range item.
+    /// </summary>
+    private HashSet<GraphNode> GetVolatileSubgraph(List<GraphNode> roots)
+    {
+        var volatileNodes = new HashSet<GraphNode>();
+        var visited = new HashSet<GraphNode>();
+        
+        void TraverseAndMark(GraphNode node)
+        {
+            if (visited.Contains(node)) return;
+            visited.Add(node);
+            
+            // If this node is a ParamNode, it's volatile
+            if (node is ParamNode)
+            {
+                volatileNodes.Add(node);
+            }
+            
+            // Recursively check dependencies
+            foreach (var dep in node.Dependencies)
+            {
+                TraverseAndMark(dep);
+                
+                // If any dependency is volatile, this node is also volatile
+                if (volatileNodes.Contains(dep))
+                {
+                    volatileNodes.Add(node);
+                }
+            }
+        }
+        
+        // Traverse from each root
+        foreach (var root in roots)
+        {
+            TraverseAndMark(root);
+        }
+        
+        return volatileNodes;
     }
 }

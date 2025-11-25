@@ -225,17 +225,18 @@ public class AstTranslator
                 rangeNode.Expression = GetText(contentNode);
 
                 // Parse Range expression and populate sourceCalculation and targetCalculation
-                var (sourceCalc, targetCalc, deps) = ParseRangeExpression(contentNode, nodes, graph);
+                var (sourceCalc, targetCalc, sourceDeps, targetDeps) = ParseRangeExpression(contentNode, nodes, graph);
                 
                 // Set the calculations
                 rangeNode.SourceCalculation = sourceCalc;
                 rangeNode.TargetCalculation = targetCalc;
                 
-                // Add dependencies
-                foreach (var dep in deps)
-                {
-                    rangeNode.AddDependency(dep);
-                }
+                // Add dependencies (both source and target)
+                foreach (var dep in sourceDeps) rangeNode.AddDependency(dep);
+                foreach (var dep in targetDeps) rangeNode.AddDependency(dep);
+                
+                // Track target dependencies specifically for subgraph expansion
+                foreach (var dep in targetDeps) rangeNode.TargetDependencies.Add(dep);
             }
             else if (graphNode is ParamNode paramNode)
             {
@@ -815,7 +816,7 @@ public class AstTranslator
     }
 
 
-    private (Func<IEvaluationContext, object>, Func<IEvaluationContext, object>, List<GraphNode>) ParseRangeExpression(
+    private (Func<IEvaluationContext, object>, Func<IEvaluationContext, object>, List<GraphNode>, List<GraphNode>) ParseRangeExpression(
         Node node, 
         Dictionary<string, GraphNode> scope, 
         DependencyGraph graph)
@@ -844,10 +845,7 @@ public class AstTranslator
         var (sourceCalc, sourceDeps) = ParseExpression(sourceNode, scope, graph);
         var (targetCalc, targetDeps) = ParseExpression(targetNode, scope, graph);
 
-        var allDeps = new List<GraphNode>(sourceDeps);
-        allDeps.AddRange(targetDeps);
-
-        return (sourceCalc, targetCalc, allDeps);
+        return (sourceCalc, targetCalc, sourceDeps, targetDeps);
     }
 
     private object ExecuteRange(RangeNode rangeNode, IEvaluationContext ctx)

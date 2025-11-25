@@ -77,6 +77,14 @@ public class GraphSerializer
             else if (node is ParamNode)
             {
                 nodeDto.Type = "param";
+                // Include value in metadata if available
+                if (results != null && results.TryGetValue(node.Name, out var paramValue))
+                {
+                    nodeDto.Metadata = new Dictionary<string, object>
+                    {
+                        { "value", paramValue }
+                    };
+                }
             }
             else if (node is FormulaNode formulaNode)
             {
@@ -126,7 +134,9 @@ public class GraphSerializer
             InputNode inputNode => hasValue 
                 ? $"Input({inputNode.Key}) = {FormatValue(value!)}"
                 : $"Input({inputNode.Key})",
-            ParamNode => $"{name}: Param",
+            ParamNode => hasValue
+                ? $"{name}: Param = {FormatValue(value!)}"
+                : $"{name}: Param",
             RangeNode => hasValue 
                 ? $"{name} = Range(...) → [{GetArrayLength(value!)} items]"
                 : $"{name} = Range(...)",

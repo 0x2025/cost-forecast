@@ -18,6 +18,11 @@ public class RangeNode : GraphNode
     /// </summary>
     public Func<IEvaluationContext, object> TargetCalculation { get; set; }
 
+    /// <summary>
+    /// Dependencies specific to the target calculation (the "template" subgraph).
+    /// </summary>
+    public List<GraphNode> TargetDependencies { get; }
+
     public string? Expression { get; set; }
 
     public RangeNode(
@@ -30,6 +35,7 @@ public class RangeNode : GraphNode
         SourceCalculation = sourceCalculation;
         TargetCalculation = targetCalculation;
         Expression = expression;
+        TargetDependencies = new List<GraphNode>();
     }
 
     public void AddDependency(GraphNode node)

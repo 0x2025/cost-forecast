@@ -69,6 +69,19 @@ public class DependencyGraph
                 }
                 clonedNode.Dependencies.Add(nodeMap[dependency]);
             }
+            
+            // Clone TargetDependencies for RangeNodes
+            if (originalNode is RangeNode originalRangeNode && clonedNode is RangeNode clonedRangeNode)
+            {
+                foreach (var targetDep in originalRangeNode.TargetDependencies)
+                {
+                    if (!nodeMap.ContainsKey(targetDep))
+                    {
+                        throw new InvalidOperationException($"Target dependency {targetDep.Name} not found in node map during cloning");
+                    }
+                    clonedRangeNode.TargetDependencies.Add(nodeMap[targetDep]);
+                }
+            }
         }
 
         return cloned;

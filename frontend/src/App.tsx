@@ -505,7 +505,11 @@ function App() {
                             {Object.entries(result.results).map(([key, value], idx) => (
                               <tr key={key} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-700">{key}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono text-right">{formatNumber(value)}</td>
+                                <td className="px-6 py-4 text-sm text-slate-600 font-mono text-right max-w-md">
+                                  <div className="truncate" title={typeof value === 'string' ? value : formatNumber(value)}>
+                                    {formatNumber(value)}
+                                  </div>
+                                </td>
                               </tr>
                             ))}
                           </tbody>
