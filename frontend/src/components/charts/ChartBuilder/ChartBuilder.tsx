@@ -69,6 +69,7 @@ export const ChartBuilder: React.FC<ChartBuilderProps> = ({ nodes, results, onSa
                     {step === 'config' && pattern === 'breakdown' && (
                         <BreakdownConfig
                             rangeGroups={detectRangeGroups(nodes)}
+                            results={results}
                             onConfigure={handleConfig}
                             onBack={() => setStep('pattern')}
                         />

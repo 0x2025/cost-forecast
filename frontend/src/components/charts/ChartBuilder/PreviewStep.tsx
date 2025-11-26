@@ -24,7 +24,7 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({ config, nodes, results
         }
 
         if (config.type === 'breakdown') {
-            const chartData = extractRangeData(config.rangeNodeId, nodes, results);
+            const chartData = extractRangeData(config.rangeNodeId, nodes, results, config.labelSourceId, config.labelKey);
             if (config.visualType === 'bar') return <BarChart data={chartData.data} />;
             if (config.visualType === 'line') return <LineChart data={chartData.data} />;
         }

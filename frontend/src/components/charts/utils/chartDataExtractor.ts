@@ -53,7 +53,9 @@ export const extractCompareData = (
 export const extractRangeData = (
     rangeNodeId: string,
     nodes: GraphNode[],
-    results: Record<string, any>
+    results: Record<string, any>,
+    labelSourceId?: string,
+    labelKey?: string
 ): ChartData => {
     // Find all nodes that are items of this range
     // We assume range items have metadata linking them to parent, or we parse labels
@@ -71,20 +73,34 @@ export const extractRangeData = (
         return false;
     });
 
-    const data: ChartDataPoint[] = rangeItems.map(node => {
-        // For RangeItemNodes, the value is stored in metadata.result
-        let value = node.metadata?.result;
+    // Get source array if label config is present
+    let sourceArray: any[] | null = null;
+    if (labelSourceId && labelKey) {
+        const val = results[labelSourceId];
+        if (Array.isArray(val)) {
+            sourceArray = val;
+        }
+    }
 
-        // Fallback to results map for other node types
-        if (value === undefined) {
-            value = results[node.id];
-            if (value === undefined) {
-                value = results[node.label];
+    const data: ChartDataPoint[] = rangeItems.map(node => {
+        // For RangeItemNodes, the value is always stored in metadata.result
+        const value = node.metadata?.result;
+
+        let name = node.metadata?.rangeItemLabel || node.label; // e.g. "employee[1]"
+
+        // Try to resolve custom label
+        if (sourceArray && labelKey && typeof node.metadata?.index === 'number') {
+            const index = node.metadata.index;
+            if (index >= 0 && index < sourceArray.length) {
+                const item = sourceArray[index];
+                if (item && typeof item === 'object' && labelKey in item) {
+                    name = String(item[labelKey]);
+                }
             }
         }
 
         return {
-            name: node.metadata?.rangeItemLabel || node.label, // e.g. "employee[1]"
+            name,
             value: typeof value === 'number' ? value : 0
         };
     });
