@@ -72,9 +72,15 @@ export const extractRangeData = (
     });
 
     const data: ChartDataPoint[] = rangeItems.map(node => {
-        let value = results[node.id];
+        // For RangeItemNodes, the value is stored in metadata.result
+        let value = node.metadata?.result;
+
+        // Fallback to results map for other node types
         if (value === undefined) {
-            value = results[node.label];
+            value = results[node.id];
+            if (value === undefined) {
+                value = results[node.label];
+            }
         }
 
         return {
