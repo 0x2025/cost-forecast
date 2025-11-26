@@ -34,7 +34,7 @@ export const Home = () => {
             <section className="py-24 bg-white">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-16">
-                        <h2 className="text-3xl md:text-4xl font-serif font-bold text-executive-navy mb-4">Why Top Consultants Choose Cost Forecast</h2>
+                        <h2 className="text-3xl md:text-4xl font-serif font-bold text-executive-navy mb-4">Why Top Consultants Choose CostVela</h2>
                         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
                             Designed specifically for professional service providers who need to build, validate, and present complex economic models.
                         </p>
@@ -76,7 +76,7 @@ export const Home = () => {
                 <div className="max-w-4xl mx-auto px-4 text-center relative z-10">
                     <h2 className="text-3xl md:text-4xl font-serif font-bold text-white mb-6">Ready to elevate your consulting practice?</h2>
                     <p className="text-blue-100 text-lg mb-10">
-                        Join the leading firms using Cost Forecast to deliver superior value to their clients.
+                        Join the leading firms using CostVela to deliver superior value to their clients.
                     </p>
                     <button className="px-8 py-4 bg-white text-executive-navy font-bold rounded-lg hover:bg-blue-50 transition-colors shadow-lg">
                         Start Your Free Trial

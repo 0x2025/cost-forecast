@@ -37,7 +37,7 @@ export const CaseStudy = () => {
                         Navigating 2025 Supply Chain Volatility
                     </h1>
                     <p className="text-xl text-slate-600 max-w-3xl leading-relaxed">
-                        How a global manufacturing consultancy used Cost Forecast to model energy price shocks and identify $2.4M in potential savings for their client.
+                        How a global manufacturing consultancy used CostVela to model energy price shocks and identify $2.4M in potential savings for their client.
                     </p>
                 </div>
 
@@ -57,7 +57,7 @@ export const CaseStudy = () => {
                         <section>
                             <h2 className="text-2xl font-serif font-bold text-executive-navy mb-4">The Solution</h2>
                             <p className="text-slate-600 leading-relaxed">
-                                Using Cost Forecast's <strong>Dynamic Graph Engine</strong>, the consultancy built a digital twin of the client's cost structure. This allowed them to:
+                                Using CostVela's <strong>Dynamic Graph Engine</strong>, the consultancy built a digital twin of the client's cost structure. This allowed them to:
                             </p>
                             <ul className="list-disc list-inside space-y-2 text-slate-600 mt-4 ml-4">
                                 <li>Ingest real-time energy index futures.</li>

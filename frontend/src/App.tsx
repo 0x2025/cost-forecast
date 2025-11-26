@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { api, type CalculationResponse } from './api';
 import { useTreeSitter, treeSitterPlugin, myHighlightStyle, dslAutocomplete, extractInputDeclarations } from './useTreeSitter';
+import { ScenariosTab } from './components/scenarios/ScenariosTab';
+import { SensitivityTab } from './components/sensitivity/SensitivityTab';
 import { syntaxHighlighting } from '@codemirror/language';
 import { InputGrid, type InputRow } from './InputGrid';
 import { GraphVisualization } from './GraphVisualization';
@@ -76,7 +78,7 @@ function App() {
     }
   });
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'results' | 'graph' | 'charts'>('results');
+  const [activeTab, setActiveTab] = useState<'results' | 'graph' | 'charts' | 'scenarios' | 'sensitivity'>('results');
   const [showScenarios, setShowScenarios] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showAI, setShowAI] = useState(false);
@@ -484,6 +486,24 @@ function App() {
             >
               Charts & Analysis
             </button>
+            <button
+              onClick={() => setActiveTab('scenarios')}
+              className={`px-6 py-3 text-sm font-semibold transition-all border-b-2 -mb-[2px] ${activeTab === 'scenarios'
+                ? 'text-slate-900 border-slate-900 bg-slate-50'
+                : 'text-slate-500 border-transparent hover:text-slate-900'
+                }`}
+            >
+              Scenarios
+            <button
+              onClick={() => setActiveTab('sensitivity' )}
+              className={`px-6 py-3 text-sm font-semibold transition-all border-b-2 -mb-[2px] ${activeTab === 'sensitivity'
+                ? 'text-slate-900 border-slate-900 bg-slate-50'
+                : 'text-slate-500 border-transparent hover:text-slate-900'
+                }`}
+            >
+              Sensitivity
+            </button>
+            </button>
           </div>
 
           {/* Content Area */}
@@ -554,6 +574,25 @@ function App() {
               </div>
             )}
 
+
+            {activeTab === 'sensitivity' && (
+              <div className="h-full w-full animate-in fade-in duration-200">
+                <SensitivityTab
+                  source={source}
+                  inputs={inputs}
+                />
+              </div>
+            )}
+
+            {activeTab === 'scenarios' && (
+              <div className="h-full w-full animate-in fade-in duration-200">
+                <ScenariosTab
+                  source={source}
+                  baselineInputs={inputs}
+                  onRefresh={handleCalculate}
+                />
+              </div>
+            )}
             {activeTab === 'charts' && (
               <div className="h-full w-full animate-in fade-in duration-200">
                 <ChartsTab

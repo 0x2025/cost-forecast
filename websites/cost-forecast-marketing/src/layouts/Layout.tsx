@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { BarChart3, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 export const Navbar = () => {
@@ -13,14 +13,10 @@ export const Navbar = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16 items-center">
                     <div className="flex items-center">
-                        <Link to="/" className="flex items-center space-x-2">
-                            <div className="bg-executive-blue p-1.5 rounded-lg">
-                                <BarChart3 className="h-6 w-6 text-white" />
-                            </div>
-                            <span className="font-serif font-bold text-xl text-executive-navy tracking-tight">Cost Forecast</span>
+                        <Link to="/" className="flex items-center">
+                            <img src="/logo.svg" alt="CostVela" className="h-8" />
                         </Link>
                     </div>
-
                     <div className="hidden md:flex items-center space-x-8">
                         <Link to="/" className={`text-sm font-medium transition-colors ${isActive('/') ? 'text-executive-blue' : 'text-slate-600 hover:text-executive-navy'}`}>Home</Link>
                         <Link to="/case-study" className={`text-sm font-medium transition-colors ${isActive('/case-study') ? 'text-executive-blue' : 'text-slate-600 hover:text-executive-navy'}`}>Case Studies</Link>
@@ -56,9 +52,8 @@ export const Footer = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                     <div className="col-span-1 md:col-span-2">
-                        <div className="flex items-center space-x-2 mb-4">
-                            <BarChart3 className="h-6 w-6 text-teal-accent" />
-                            <span className="font-serif font-bold text-xl text-white">Cost Forecast</span>
+                        <div className="mb-4">
+                            <span className="font-serif font-bold text-xl text-white">CostVela</span>
                         </div>
                         <p className="text-sm text-slate-400 max-w-xs">
                             Empowering consultants and enterprises with next-generation cost modeling and scenario planning intelligence.
@@ -84,7 +79,7 @@ export const Footer = () => {
                     </div>
                 </div>
                 <div className="border-t border-slate-800 mt-12 pt-8 text-sm text-center text-slate-500">
-                    © 2025 Cost Forecast. All rights reserved.
+                    © 2025 CostVela. All rights reserved.
                 </div>
             </div>
         </footer>

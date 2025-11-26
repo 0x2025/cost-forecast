@@ -1,6 +1,6 @@
-# Cost Forecast Marketing Website
+# CostVela Marketing Website
 
-This is the professional marketing website for Cost Forecast, designed for B2B consultant clients.
+This is the professional marketing website for CostVela (costvela.com), designed for B2B consultant clients.
 
 ## Tech Stack
 - **Framework**: React + Vite
