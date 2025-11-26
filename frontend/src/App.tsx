@@ -12,6 +12,7 @@ import { formatNumber, parseFormattedNumber } from './utils/formatting';
 
 const STORAGE_KEY_SOURCE = 'costforecast_source';
 const STORAGE_KEY_INPUTS = 'costforecast_inputs';
+const STORAGE_KEY_RESULT = 'costforecast_result';
 
 const DEFAULT_SOURCE = `
 qty: Param
@@ -66,7 +67,14 @@ function App() {
     }
   });
 
-  const [result, setResult] = useState<CalculationResponse | null>(null);
+  const [result, setResult] = useState<CalculationResponse | null>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_RESULT);
+    try {
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'results' | 'graph' | 'charts'>('results');
   const [showScenarios, setShowScenarios] = useState(false);
@@ -98,12 +106,23 @@ function App() {
     localStorage.setItem(STORAGE_KEY_SCENARIOS, JSON.stringify(scenarios));
   }, [scenarios]);
 
+  // Persist calculation results
+  useEffect(() => {
+    if (result) {
+      localStorage.setItem(STORAGE_KEY_RESULT, JSON.stringify(result));
+    } else {
+      localStorage.removeItem(STORAGE_KEY_RESULT);
+    }
+  }, [result]);
+
   const handleReset = () => {
     if (window.confirm('Are you sure you want to reset code and inputs to default? This cannot be undone.')) {
       setSource(DEFAULT_SOURCE);
       setInputs(DEFAULT_INPUTS);
+      setResult(null);
       localStorage.removeItem(STORAGE_KEY_SOURCE);
       localStorage.removeItem(STORAGE_KEY_INPUTS);
+      localStorage.removeItem(STORAGE_KEY_RESULT);
     }
   };
 
