@@ -1,0 +1,33 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@theme {
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Consulting Grade Palette */
+  --color-executive-navy: #020617;
+  --color-executive-blue: #0052cc;
+  --color-teal-accent: #0f766e;
+  --color-gold-accent: #b45309;
+}
+
+/* Base Styles */
+body {
+  font-family: var(--font-sans);
+  @apply text-slate-900 bg-slate-50;
+  letter-spacing: -0.01em;
+}
+
+/* Typography Overrides */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
