@@ -71,8 +71,17 @@ public class GraphSerializer
                 {
                     { "index", itemNode.Index },
                     { "result", itemNode.Result }
-                    // Could also include itemValues if needed
                 };
+                
+                // Derive parent RangeNode from graph structure
+                var parentRangeNode = allNodes
+                    .OfType<RangeNode>()
+                    .FirstOrDefault(r => r.Dependencies.Contains(node));
+                
+                if (parentRangeNode != null)
+                {
+                    nodeDto.Metadata["rangeParentId"] = parentRangeNode.Name;
+                }
             }
             else if (node is ParamNode)
             {

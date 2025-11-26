@@ -352,4 +352,4 @@ We are **not** reinventing the wheel. We are using **proven, battle-tested patte
 - Research on DSL usability heuristics (Usa-DSL framework)
 
 ### Related ADRs
-- [ADR: Parser and Evaluator Architecture](file:///Users/arthur/.gemini/antigravity/brain/feebe681-e346-43c3-8a98-9982d1968a2f/adr_parser_evaluator.md)
+- [ADR: Parser and Evaluator Architecture](adr_parser_evaluator.md)

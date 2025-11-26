@@ -160,7 +160,41 @@ With input: `items = [{"qty": 2, "price": 10}, {"qty": 3, "price": 5}]`
 - Graph Visualization: How frontend renders expanded nodes
 - API Design: Evaluation-first approach for graph generation
 
+## Updates
+
+### 2025-11-26: Keep Engine Pure - Derive Display Metadata in Serializer
+
+**Context**: The frontend's Chart Breakdown feature needed `rangeParentId` metadata to group `RangeItemNode`s. Initial implementation added a `ParentId` property to `RangeItemNode` and populated it during evaluation.
+
+**Problem**: This violated separation of concerns by storing presentation-specific data in the core engine.
+
+**Decision**: Derive `rangeParentId` from graph structure during serialization instead of storing it in `RangeItemNode`.
+
+**Implementation**: 
+In `GraphSerializer.cs`, when serializing a `RangeItemNode`, find its parent `RangeNode` by checking which `RangeNode` has this item as a dependency:
+
+```csharp
+var parentRangeNode = allNodes
+    .OfType<RangeNode>()
+    .FirstOrDefault(r => r.Dependencies.Contains(node));
+
+if (parentRangeNode != null)
+{
+    nodeDto.Metadata["rangeParentId"] = parentRangeNode.Name;
+}
+```
+
+**Rationale**:
+- **Separation of Concerns**: Core engine (`RangeItemNode`) focuses on computation, serializer handles presentation
+- **Single Source of Truth**: Parent-child relationship already exists in the graph dependency structure
+- **Maintainability**: Display logic is centralized in the serializer where it belongs
+
+**Impact**: `RangeItemNode` remains pure without presentation-specific properties. The relationship is derived on-demand during serialization.
+
 ## References
 
-- [Implementation Plan](file:///Users/arthur/.gemini/antigravity/brain/3b4f0e42-8211-4b42-975d-67fbca62ecce/implementation_plan.md)
+- [Implementation Plan](../walkthroughs/graph_cloning_implementation_plan.md)
+- [Chart Breakdown Fix Walkthrough](../walkthroughs/chart_breakdown_range_parent_fix.md)
 - User Feedback (2025-11-23): API should return runtime graph only, use node types instead of metadata
+- User Feedback (2025-11-26): Keep display logic in serializer and keep the engine pure
+
