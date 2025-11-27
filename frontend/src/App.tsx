@@ -12,9 +12,9 @@ import { HelpPanel } from './components/HelpPanel';
 import { AIGenerator } from './components/AIGenerator';
 import { formatNumber, parseFormattedNumber } from './utils/formatting';
 
-const STORAGE_KEY_SOURCE = 'costforecast_source';
-const STORAGE_KEY_INPUTS = 'costforecast_inputs';
-const STORAGE_KEY_RESULT = 'costforecast_result';
+const STORAGE_KEY_SOURCE = 'costvela_source';
+const STORAGE_KEY_INPUTS = 'costvela_inputs';
+const STORAGE_KEY_RESULT = 'costvela_result';
 
 const DEFAULT_SOURCE = `
 qty: Param
@@ -35,7 +35,7 @@ const DEFAULT_INPUTS: InputRow[] = [
   { key: 'items', value: '[{"qty": 2, "price": 10}, {"qty": 5, "price": 20}, {"qty": 1, "price": 100}]' }
 ];
 
-const STORAGE_KEY_SCENARIOS = 'costforecast_scenarios';
+const STORAGE_KEY_SCENARIOS = 'costvela_scenarios';
 
 interface Scenario {
   id: string;
@@ -277,7 +277,7 @@ function App() {
               </svg>
             </div>
             <div>
-              <h1 className="font-serif font-semibold text-2xl text-slate-900 tracking-tight leading-none">Cost Forecast</h1>
+              <h1 className="font-serif font-semibold text-2xl text-slate-900 tracking-tight leading-none">CostVela</h1>
               <p className="text-[9px] text-slate-500 uppercase tracking-[0.15em] font-medium mt-0.5">The cost modeling that you can trust</p>
             </div>
           </div>

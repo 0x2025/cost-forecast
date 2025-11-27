@@ -20,7 +20,7 @@ export function AIGenerator({ onClose }: AIGeneratorProps) {
         setStatus('generating');
 
         const fullPrompt = `
-You are an expert in the CostForecast DSL.
+You are an expert in the CostVela DSL.
 Use the following documentation to generate code that fulfills the user's request.
 
 --- DSL GUIDE START ---

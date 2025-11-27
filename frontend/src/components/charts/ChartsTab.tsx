@@ -23,7 +23,7 @@ interface ChartConfig {
 
 export const ChartsTab: React.FC<ChartsTabProps> = ({ nodes, results, onRefresh }) => {
     const [charts, setCharts] = useState<ChartConfig[]>(() => {
-        const saved = localStorage.getItem('costForecast_charts');
+        const saved = localStorage.getItem('costVela_charts');
         try {
             return saved ? JSON.parse(saved) : [];
         } catch (e) {
@@ -35,7 +35,7 @@ export const ChartsTab: React.FC<ChartsTabProps> = ({ nodes, results, onRefresh 
 
     // Save charts to localStorage whenever they change
     useEffect(() => {
-        localStorage.setItem('costForecast_charts', JSON.stringify(charts));
+        localStorage.setItem('costVela_charts', JSON.stringify(charts));
     }, [charts]);
 
     const handleAddChart = (config: ChartConfig) => {
