@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { api, type SensitivityResponse } from '../../api';
 import type { InputRow } from '../../InputGrid';
 import { TornadoChart } from '../charts/ChartDisplay/TornadoChart';
+import { SensitivityChart } from '../charts/ChartDisplay/SensitivityChart';
 
 interface SensitivityTabProps {
     source: string;
@@ -15,6 +16,13 @@ export const SensitivityTab: React.FC<SensitivityTabProps> = ({ source, inputs }
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState<SensitivityResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [selectedInputs, setSelectedInputs] = useState<string[]>([]);
+
+    // Filter for numeric inputs only
+    const numericInputs = inputs.filter(row => {
+        const val = row.value;
+        return typeof val === 'number' || (typeof val === 'string' && !isNaN(parseFloat(val)));
+    });
 
     // Convert InputRow[] to Record<string, any>
     const inputRecord = inputs.reduce((acc, row) => {
@@ -27,8 +35,14 @@ export const SensitivityTab: React.FC<SensitivityTabProps> = ({ source, inputs }
         setError(null);
         try {
             // In auto mode, we send empty inputsToVary to let backend detect drivers
-            // In manual mode, we would send selected inputs (future feature)
-            const inputsToVary: string[] = [];
+            // In manual mode, we send selected inputs
+            const inputsToVary: string[] = mode === 'manual' ? selectedInputs : [];
+
+            if (mode === 'manual' && inputsToVary.length === 0) {
+                setError('Please select at least one input to analyze');
+                setLoading(false);
+                return;
+            }
 
             // For now, we track all numeric outputs. In future, we can let user select.
             const outputMetrics: string[] = [];
@@ -102,25 +116,54 @@ export const SensitivityTab: React.FC<SensitivityTabProps> = ({ source, inputs }
                                     <button
                                         onClick={() => setMode('auto')}
                                         className={`flex-1 px-4 py-2 text-sm font-medium border rounded-l-md focus:z-10 focus:ring-1 focus:ring-slate-900 ${mode === 'auto'
-                                                ? 'bg-slate-900 text-white border-slate-900'
-                                                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                                            ? 'bg-slate-900 text-white border-slate-900'
+                                            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                                             }`}
                                     >
                                         Auto-Detect Drivers
                                     </button>
                                     <button
                                         onClick={() => setMode('manual')}
-                                        disabled
-                                        title="Manual selection coming soon"
                                         className={`flex-1 px-4 py-2 text-sm font-medium border-t border-b border-r rounded-r-md focus:z-10 focus:ring-1 focus:ring-slate-900 ${mode === 'manual'
-                                                ? 'bg-slate-900 text-white border-slate-900'
-                                                : 'bg-slate-50 text-slate-400 border-slate-300 cursor-not-allowed'
+                                            ? 'bg-slate-900 text-white border-slate-900'
+                                            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                                             }`}
                                     >
                                         Manual Selection
                                     </button>
                                 </div>
                             </div>
+
+                            {mode === 'manual' && (
+                                <div className="col-span-1 md:col-span-3 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <label className="block text-xs font-medium text-slate-500 mb-2">Select Inputs to Analyze</label>
+                                    <div className="bg-slate-50 rounded-md border border-slate-200 p-3 max-h-40 overflow-y-auto">
+                                        {numericInputs.length > 0 ? (
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                                {numericInputs.map(input => (
+                                                    <label key={input.key} className="flex items-center space-x-2 cursor-pointer hover:bg-slate-100 p-1 rounded">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedInputs.includes(input.key)}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setSelectedInputs([...selectedInputs, input.key]);
+                                                                } else {
+                                                                    setSelectedInputs(selectedInputs.filter(k => k !== input.key));
+                                                                }
+                                                            }}
+                                                            className="rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                                                        />
+                                                        <span className="text-sm text-slate-700 truncate" title={input.key}>{input.key}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-slate-400 italic">No numeric inputs available</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 mb-2">
@@ -177,6 +220,8 @@ export const SensitivityTab: React.FC<SensitivityTabProps> = ({ source, inputs }
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             {results.keyDrivers.length > 0 ? (
                                 <TornadoChart data={results.keyDrivers} />
+                            ) : results.series.length > 0 ? (
+                                <SensitivityChart data={results.series} />
                             ) : (
                                 <div className="bg-white p-8 rounded-lg border border-slate-200 text-center text-slate-500">
                                     <p>No significant cost drivers found for the given range.</p>
