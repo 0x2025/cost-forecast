@@ -1,25 +1,6 @@
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { Download } from 'lucide-react';
 import { ScenarioDemo } from '../components/demo/ScenarioDemo';
 import { SensitivityDemo } from '../components/demo/SensitivityDemo';
-
-const scenarioData = [
-    { month: 'Jan', Base: 100, Optimistic: 95, Pessimistic: 105 },
-    { month: 'Feb', Base: 102, Optimistic: 96, Pessimistic: 108 },
-    { month: 'Mar', Base: 105, Optimistic: 98, Pessimistic: 115 },
-    { month: 'Apr', Base: 104, Optimistic: 97, Pessimistic: 118 },
-    { month: 'May', Base: 108, Optimistic: 99, Pessimistic: 125 },
-    { month: 'Jun', Base: 110, Optimistic: 100, Pessimistic: 130 },
-    { month: 'Jul', Base: 112, Optimistic: 101, Pessimistic: 135 },
-    { month: 'Aug', Base: 115, Optimistic: 102, Pessimistic: 140 },
-];
-
-const sensitivityData = [
-    { name: 'Energy Price', impact: 85, color: '#b45309' }, // Gold
-    { name: 'Logistics', impact: 65, color: '#0f766e' },    // Teal
-    { name: 'Raw Material', impact: 45, color: '#0052cc' }, // Blue
-    { name: 'Labor', impact: 25, color: '#020617' },        // Navy
-];
 
 export const CaseStudy = () => {
     return (
@@ -91,66 +72,6 @@ export const CaseStudy = () => {
                     </div>
                 </div>
 
-                {/* Visuals / Charts */}
-                <div className="space-y-16">
-
-                    {/* Scenario Chart */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-                        <div className="flex justify-between items-end mb-8">
-                            <div>
-                                <h3 className="text-xl font-bold text-executive-navy">Cost Projection Scenarios (2025)</h3>
-                                <p className="text-slate-500 text-sm mt-1">Projected unit cost ($) under varying market conditions</p>
-                            </div>
-                            <div className="flex space-x-4 text-sm">
-                                <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div> Pessimistic</div>
-                                <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-executive-blue mr-2"></div> Base</div>
-                                <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-teal-accent mr-2"></div> Optimistic</div>
-                            </div>
-                        </div>
-
-                        <div className="h-[400px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={scenarioData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} dy={10} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                        itemStyle={{ fontSize: '14px', fontWeight: 500 }}
-                                    />
-                                    <Line type="monotone" dataKey="Pessimistic" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                                    <Line type="monotone" dataKey="Base" stroke="#0052cc" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                                    <Line type="monotone" dataKey="Optimistic" stroke="#0f766e" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-
-                    {/* Sensitivity Chart */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-                        <div className="mb-8">
-                            <h3 className="text-xl font-bold text-executive-navy">Sensitivity Analysis: Impact on Margin</h3>
-                            <p className="text-slate-500 text-sm mt-1">Relative impact of key cost drivers on final product margin (Basis Points)</p>
-                        </div>
-
-                        <div className="h-[300px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={sensitivityData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
-                                    <XAxis type="number" hide />
-                                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#020617', fontWeight: 500, fontSize: 14 }} width={120} />
-                                    <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '8px' }} />
-                                    <Bar dataKey="impact" radius={[0, 4, 4, 0]} barSize={32}>
-                                        {sensitivityData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-
-                </div>
 
                 {/* Interactive Demos - Inline as requested */}
                 <div className="mt-20 pt-16 border-t-2 border-slate-200">

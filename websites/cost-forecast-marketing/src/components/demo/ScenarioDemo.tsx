@@ -1,33 +1,9 @@
 import React from 'react';
 import { ScenariosTab } from '@costvela/ui';
-import type { InputRow } from '@costvela/types';
 
-// Sample DSL for manufacturing cost analysis case study
-const DEMO_DSL = `
-# Manufacturing Cost Model
-units_produced: Input("units_produced")
-material_cost_per_unit: Input("material_cost_per_unit")
-labor_hours_per_unit: Input("labor_hours_per_unit")
-labor_rate: Input("labor_rate")
-overhead_rate: Input("overhead_rate")
 
-# Calculations
-total_material_cost = units_produced * material_cost_per_unit
-total_labor_hours = units_produced * labor_hours_per_unit
-total_labor_cost = total_labor_hours * labor_rate
-overhead_cost = total_labor_cost * overhead_rate
+import { CASE_STUDY_DSL, CASE_STUDY_INPUTS } from '../../data/caseStudyData';
 
-total_cost = total_material_cost + total_labor_cost + overhead_cost
-cost_per_unit = total_cost / units_produced
-`;
-
-const DEMO_INPUTS: InputRow[] = [
-    { key: 'units_produced', value: '1000' },
-    { key: 'material_cost_per_unit', value: '50' },
-    { key: 'labor_hours_per_unit', value: '2' },
-    { key: 'labor_rate', value: '25' },
-    { key: 'overhead_rate', value: '0.3' }
-];
 
 export const ScenarioDemo: React.FC = () => {
     return (
@@ -45,8 +21,8 @@ export const ScenarioDemo: React.FC = () => {
 
                 <div className="bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
                     <ScenariosTab
-                        source={DEMO_DSL}
-                        baselineInputs={DEMO_INPUTS}
+                        source={CASE_STUDY_DSL}
+                        baselineInputs={CASE_STUDY_INPUTS}
                     />
                 </div>
 

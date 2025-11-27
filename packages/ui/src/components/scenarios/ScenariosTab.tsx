@@ -2,6 +2,16 @@ import React, { useState } from 'react';
 import { api } from '@costvela/api-client';
 import type { BatchCalculationResponse, InputRow } from '@costvela/types';
 import { formatLabel } from '../../utils/formatting';
+import {
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    ResponsiveContainer
+} from 'recharts';
 
 interface ScenariosTabProps {
     source: string;
@@ -10,15 +20,13 @@ interface ScenariosTabProps {
     translations?: Record<string, string>;
 }
 
-// ... (inside component)
-
-
-
 interface Scenario {
     id: string;
     name: string;
     inputs: Record<string, any>;
 }
+
+const COLORS = ['#0f172a', '#0f766e', '#b45309', '#0052cc', '#ef4444', '#8b5cf6'];
 
 export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInputs, translations }) => {
     const [scenarios, setScenarios] = useState<Scenario[]>([
@@ -106,11 +114,24 @@ export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInpu
     );
 
     // Get all unique result keys from the first scenario's results
-    const resultKeys = (results && results.results && scenarios[0])
-        ? Object.keys(results.results[scenarios[0].name] || {}).filter(k =>
-            results.results[scenarios[0].name]?.results?.[k] !== undefined
-        )
+    const resultKeys = (results && results.results && scenarios[0] && results.results[scenarios[0].name]?.results)
+        ? Object.keys(results.results[scenarios[0].name].results)
         : [];
+
+    // Prepare chart data
+    const chartData = scenarios.map(scenario => {
+        const scenarioResults = results?.results[scenario.name]?.results || {};
+        const dataPoint: any = { name: scenario.name };
+
+        resultKeys.forEach(key => {
+            const val = scenarioResults[key];
+            if (typeof val === 'number') {
+                dataPoint[key] = val;
+            }
+        });
+
+        return dataPoint;
+    });
 
     return (
         <div className="h-full flex flex-col bg-slate-50/50">
@@ -165,107 +186,167 @@ export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInpu
                         <p>No scenarios defined</p>
                     </div>
                 ) : (
-                    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-slate-200">
-                                <thead className="bg-slate-50">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">
-                                            Variable
-                                        </th>
-                                        {scenarios.map(scenario => (
-                                            <th key={scenario.id} className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <span className="font-bold">{scenario.name}</span>
-                                                    {scenario.id !== 'baseline' && (
-                                                        <button
-                                                            onClick={() => handleRemoveScenario(scenario.id)}
-                                                            className="text-red-500 hover:text-red-700"
-                                                            title="Remove scenario"
-                                                        >
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                            </svg>
-                                                        </button>
-                                                    )}
-                                                </div>
+                    <div className="space-y-8">
+                        {/* Table */}
+                        <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-slate-200">
+                                    <thead className="bg-slate-50">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">
+                                                Variable
                                             </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-slate-200">
-                                    {/* Inputs Section */}
-                                    <tr className="bg-slate-100">
-                                        <td colSpan={scenarios.length + 1} className="px-4 py-2 text-xs font-semibold text-slate-700 uppercase">
-                                            Inputs
-                                        </td>
-                                    </tr>
-                                    {allInputKeys.map(key => (
-                                        <tr key={key} className="hover:bg-slate-50">
-                                            <td className="px-4 py-3 text-sm font-medium text-slate-700 sticky left-0 bg-white">
-                                                {formatLabel(key, translations)}
-                                            </td>
                                             {scenarios.map(scenario => (
-                                                <td key={scenario.id} className="px-4 py-3">
-                                                    <input
-                                                        type="text"
-                                                        value={scenario.inputs[key] || ''}
-                                                        onChange={(e) => handleInputChange(scenario.id, key, e.target.value)}
-                                                        className="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-900 text-center"
-                                                    />
-                                                </td>
+                                                <th key={scenario.id} className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className="font-bold">{scenario.name}</span>
+                                                        {scenario.id !== 'baseline' && (
+                                                            <button
+                                                                onClick={() => handleRemoveScenario(scenario.id)}
+                                                                className="text-red-500 hover:text-red-700"
+                                                                title="Remove scenario"
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                </svg>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </th>
                                             ))}
                                         </tr>
-                                    ))}
-
-                                    {/* Results Section */}
-                                    {results && resultKeys.length > 0 && (
-                                        <>
-                                            <tr className="bg-slate-100">
-                                                <td colSpan={scenarios.length + 1} className="px-4 py-2 text-xs font-semibold text-slate-700 uppercase">
-                                                    Results
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-slate-200">
+                                        {/* Inputs Section */}
+                                        <tr className="bg-slate-100">
+                                            <td colSpan={scenarios.length + 1} className="px-4 py-2 text-xs font-semibold text-slate-700 uppercase">
+                                                Inputs
+                                            </td>
+                                        </tr>
+                                        {allInputKeys.map(key => (
+                                            <tr key={key} className="hover:bg-slate-50">
+                                                <td className="px-4 py-3 text-sm font-medium text-slate-700 sticky left-0 bg-white">
+                                                    {formatLabel(key, translations)}
                                                 </td>
+                                                {scenarios.map(scenario => (
+                                                    <td key={scenario.id} className="px-4 py-3">
+                                                        <input
+                                                            type="text"
+                                                            value={scenario.inputs[key] || ''}
+                                                            onChange={(e) => handleInputChange(scenario.id, key, e.target.value)}
+                                                            className="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-900 text-center"
+                                                        />
+                                                    </td>
+                                                ))}
                                             </tr>
-                                            {resultKeys.map(key => {
-                                                const baselineValue = results.results[scenarios[0]?.name]?.results?.[key];
-                                                return (
-                                                    <tr key={key} className="hover:bg-slate-50">
-                                                        <td className="px-4 py-3 text-sm font-medium text-slate-700 sticky left-0 bg-white">
-                                                            {formatLabel(key, translations)}
-                                                        </td>
-                                                        {scenarios.map((scenario, idx) => {
-                                                            const value = results.results[scenario.name]?.results?.[key];
-                                                            const isBaseline = idx === 0;
-                                                            let delta = '';
-                                                            let deltaClass = '';
+                                        ))}
 
-                                                            if (!isBaseline && typeof value === 'number' && typeof baselineValue === 'number' && baselineValue !== 0) {
-                                                                const percentChange = ((value - baselineValue) / baselineValue) * 100;
-                                                                delta = percentChange > 0 ? `▲${percentChange.toFixed(1)}%` : `▼${Math.abs(percentChange).toFixed(1)}%`;
-                                                                deltaClass = percentChange > 0 ? 'text-green-600' : percentChange < 0 ? 'text-red-600' : 'text-slate-500';
-                                                            }
+                                        {/* Results Section */}
+                                        {results && resultKeys.length > 0 && (
+                                            <>
+                                                <tr className="bg-slate-100">
+                                                    <td colSpan={scenarios.length + 1} className="px-4 py-2 text-xs font-semibold text-slate-700 uppercase">
+                                                        Results
+                                                    </td>
+                                                </tr>
+                                                {resultKeys.map(key => {
+                                                    const baselineValue = results.results[scenarios[0]?.name]?.results?.[key];
+                                                    return (
+                                                        <tr key={key} className="hover:bg-slate-50">
+                                                            <td className="px-4 py-3 text-sm font-medium text-slate-700 sticky left-0 bg-white">
+                                                                {formatLabel(key, translations)}
+                                                            </td>
+                                                            {scenarios.map((scenario, idx) => {
+                                                                const value = results.results[scenario.name]?.results?.[key];
+                                                                const isBaseline = idx === 0;
+                                                                let delta = '';
+                                                                let deltaClass = '';
 
-                                                            return (
-                                                                <td key={scenario.id} className="px-4 py-3 text-center">
-                                                                    <div className="font-mono text-sm text-slate-900">
-                                                                        {typeof value === 'number' ? value.toLocaleString() : String(value)}
-                                                                    </div>
-                                                                    {delta && (
-                                                                        <div className={`text-xs font-semibold mt-1 ${deltaClass}`}>
-                                                                            {delta}
+                                                                if (!isBaseline && typeof value === 'number' && typeof baselineValue === 'number' && baselineValue !== 0) {
+                                                                    const percentChange = ((value - baselineValue) / baselineValue) * 100;
+                                                                    delta = percentChange > 0 ? `▲${percentChange.toFixed(1)}%` : `▼${Math.abs(percentChange).toFixed(1)}%`;
+                                                                    deltaClass = percentChange > 0 ? 'text-green-600' : percentChange < 0 ? 'text-red-600' : 'text-slate-500';
+                                                                }
+
+                                                                return (
+                                                                    <td key={scenario.id} className="px-4 py-3 text-center">
+                                                                        <div className="font-mono text-sm text-slate-900">
+                                                                            {typeof value === 'number' ? value.toLocaleString() : String(value)}
                                                                         </div>
-                                                                    )}
-                                                                </td>
-                                                            );
-                                                        })}
-                                                    </tr>
-                                                );
-                                            })}
-                                        </>
-                                    )}
-                                </tbody>
-                            </table>
+                                                                        {delta && (
+                                                                            <div className={`text-xs font-semibold mt-1 ${deltaClass}`}>
+                                                                                {delta}
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
+
+                        {/* TEST: Chart should appear below */}
+                        {results && Object.keys(results.results).length > 0 ? (
+                            <div className="bg-green-100 p-4 text-center">
+                                ✅ Chart condition TRUE - Chart should render here
+                                <div className="text-xs">chartData length: {chartData.length}, resultKeys: {resultKeys.length}</div>
+                            </div>
+                        ) : (
+                            <div className="bg-red-100 p-4 text-center">
+                                ❌ Chart condition FALSE - results: {results ? 'exists' : 'null'}
+                            </div>
+                        )}
+
+                        {/* Charts Section - Show if we have results */}
+                        {results && Object.keys(results.results).length > 0 && (
+                            <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-6">
+                                <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-6">Visual Comparison</h3>
+                                <div className="h-[400px] w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                            <XAxis
+                                                dataKey="name"
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: '#64748b', fontSize: 12 }}
+                                                dy={10}
+                                            />
+                                            <YAxis
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: '#64748b', fontSize: 12 }}
+                                            />
+                                            <Tooltip
+                                                cursor={{ fill: '#f8fafc' }}
+                                                contentStyle={{
+                                                    backgroundColor: '#fff',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid #e2e8f0',
+                                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                                                }}
+                                            />
+                                            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                                            {resultKeys.filter(key => typeof chartData[0]?.[key] === 'number').map((key, index) => (
+                                                <Bar
+                                                    key={key}
+                                                    dataKey={key}
+                                                    name={formatLabel(key, translations)}
+                                                    fill={COLORS[index % COLORS.length]}
+                                                    radius={[4, 4, 0, 0]}
+                                                />
+                                            ))}
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
