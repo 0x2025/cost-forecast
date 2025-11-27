@@ -271,7 +271,7 @@ export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInpu
                                                                 return (
                                                                     <td key={scenario.id} className="px-4 py-3 text-center">
                                                                         <div className="font-mono text-sm text-slate-900">
-                                                                            {typeof value === 'number' ? value.toLocaleString() : String(value)}
+                                                                            {value !== undefined ? (typeof value === 'number' ? value.toLocaleString() : String(value)) : '—'}
                                                                         </div>
                                                                         {delta && (
                                                                             <div className={`text-xs font-semibold mt-1 ${deltaClass}`}>
@@ -290,18 +290,6 @@ export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInpu
                                 </table>
                             </div>
                         </div>
-
-                        {/* TEST: Chart should appear below */}
-                        {results && Object.keys(results.results).length > 0 ? (
-                            <div className="bg-green-100 p-4 text-center">
-                                ✅ Chart condition TRUE - Chart should render here
-                                <div className="text-xs">chartData length: {chartData.length}, resultKeys: {resultKeys.length}</div>
-                            </div>
-                        ) : (
-                            <div className="bg-red-100 p-4 text-center">
-                                ❌ Chart condition FALSE - results: {results ? 'exists' : 'null'}
-                            </div>
-                        )}
 
                         {/* Charts Section - Show if we have results */}
                         {results && Object.keys(results.results).length > 0 && (
