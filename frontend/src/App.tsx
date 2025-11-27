@@ -494,8 +494,9 @@ function App() {
                 }`}
             >
               Scenarios
+            </button>
             <button
-              onClick={() => setActiveTab('sensitivity' )}
+              onClick={() => setActiveTab('sensitivity')}
               className={`px-6 py-3 text-sm font-semibold transition-all border-b-2 -mb-[2px] ${activeTab === 'sensitivity'
                 ? 'text-slate-900 border-slate-900 bg-slate-50'
                 : 'text-slate-500 border-transparent hover:text-slate-900'
@@ -503,7 +504,7 @@ function App() {
             >
               Sensitivity
             </button>
-            </button>
+
           </div>
 
           {/* Content Area */}

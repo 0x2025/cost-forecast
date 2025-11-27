@@ -47,7 +47,7 @@ public class SensitivityAnalyzer
         if (outputMetrics == null || outputMetrics.Count == 0)
         {
             outputMetrics = baselineResults
-                .Where(kvp => ConvertToDouble(kvp.Value).HasValue)
+                .Where(kvp => TryConvertToDouble(kvp.Value).HasValue)
                 .Select(kvp => kvp.Key)
                 .ToList();
         }
@@ -56,7 +56,7 @@ public class SensitivityAnalyzer
         {
             if (baselineResults.ContainsKey(outputMetric))
             {
-                var value = ConvertToDouble(baselineResults[outputMetric]);
+                var value = TryConvertToDouble(baselineResults[outputMetric]);
                 if (value.HasValue)
                 {
                     baselineOutputValues[outputMetric] = value.Value;
@@ -70,7 +70,7 @@ public class SensitivityAnalyzer
             if (!baselineInputs.ContainsKey(inputKey))
                 continue;
 
-            var baselineValue = ConvertToDouble(baselineInputs[inputKey]);
+            var baselineValue = TryConvertToDouble(baselineInputs[inputKey]);
             if (!baselineValue.HasValue)
                 continue; // Can only vary numeric inputs
 
@@ -104,7 +104,7 @@ public class SensitivityAnalyzer
 
                     if (scenarioResults.ContainsKey(outputMetric))
                     {
-                        var outputValue = ConvertToDouble(scenarioResults[outputMetric]);
+                        var outputValue = TryConvertToDouble(scenarioResults[outputMetric]);
                         if (outputValue.HasValue)
                         {
                             var outputPercentChange = baselineOutputValues[outputMetric] != 0
@@ -144,7 +144,7 @@ public class SensitivityAnalyzer
         List<string> outputMetrics,
         int topN = 5)
     {
-        // Get baseline results
+        // Get baseline results using the provided inputs
         var baselineContext = new CalculationContext();
         baselineContext.AddInputProvider(new NamedInputProvider(baselineInputs));
         
@@ -166,7 +166,7 @@ public class SensitivityAnalyzer
         if (outputMetrics == null || outputMetrics.Count == 0)
         {
             outputMetrics = baselineResults
-                .Where(kvp => ConvertToDouble(kvp.Value).HasValue)
+                .Where(kvp => TryConvertToDouble(kvp.Value).HasValue)
                 .Select(kvp => kvp.Key)
                 .ToList();
         }
@@ -175,7 +175,7 @@ public class SensitivityAnalyzer
         {
             if (baselineResults.ContainsKey(outputMetric))
             {
-                var value = ConvertToDouble(baselineResults[outputMetric]);
+                var value = TryConvertToDouble(baselineResults[outputMetric]);
                 if (value.HasValue)
                 {
                     baselineOutputValues[outputMetric] = value.Value;
@@ -185,10 +185,10 @@ public class SensitivityAnalyzer
 
         var drivers = new List<CostDriver>();
 
-        // Analyze each numeric input
+        // Analyze each numeric input from the provided baseline
         foreach (var (inputKey, inputValue) in baselineInputs)
         {
-            var baselineValue = ConvertToDouble(inputValue);
+            var baselineValue = TryConvertToDouble(inputValue);
             if (!baselineValue.HasValue || baselineValue.Value == 0)
                 continue;
 
@@ -215,7 +215,7 @@ public class SensitivityAnalyzer
             {
                 if (baselineOutputValues.ContainsKey(outputMetric) && scenarioResults.ContainsKey(outputMetric))
                 {
-                    var newOutputValue = ConvertToDouble(scenarioResults[outputMetric]);
+                    var newOutputValue = TryConvertToDouble(scenarioResults[outputMetric]);
                     if (newOutputValue.HasValue)
                     {
                         var baselineOutput = baselineOutputValues[outputMetric];
@@ -268,20 +268,20 @@ public class SensitivityAnalyzer
         return points;
     }
 
-    private double? ConvertToDouble(object value)
+    /// <summary>
+    /// Attempts to convert a value to double, returning null if conversion fails.
+    /// Used for silently skipping invalid inputs during sensitivity analysis.
+    /// </summary>
+    private double? TryConvertToDouble(object value)
     {
-        if (value == null) return null;
-
-        return value switch
+        try
         {
-            double d => d,
-            int i => i,
-            long l => l,
-            float f => f,
-            decimal dec => (double)dec,
-            string s when double.TryParse(s, out var parsed) => parsed,
-            _ => null
-        };
+            return TypeConverter.ToDouble(value);
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
 

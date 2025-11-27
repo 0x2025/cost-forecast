@@ -18,40 +18,7 @@ public class AstTranslator
         _source = source;
     }
 
-    private static double ConvertToDouble(object value)
-    {
-        if (value == null)
-            return 0.0;
 
-        // Handle JsonElement from API deserialization
-        if (value is JsonElement jsonElement)
-        {
-            return jsonElement.ValueKind switch
-            {
-                JsonValueKind.Number => jsonElement.GetDouble(),
-                JsonValueKind.String => double.TryParse(jsonElement.GetString(), out var d) ? d : throw new Exception($"Cannot convert string '{jsonElement.GetString()}' to number"),
-                JsonValueKind.True => 1.0,
-                JsonValueKind.False => 0.0,
-                JsonValueKind.Null => 0.0,
-                _ => throw new Exception($"Cannot convert JsonElement of type {jsonElement.ValueKind} to number")
-            };
-        }
-
-        // Handle primitive types from tests
-        if (value is double dbl) return dbl;
-        if (value is int i) return i;
-        if (value is long l) return l;
-        if (value is float f) return f;
-        if (value is decimal dec) return (double)dec;
-        
-        if (value is Array || value is System.Collections.IEnumerable && !(value is string))
-        {
-            throw new ArgumentException("Cannot convert array/collection to number directly. Use aggregation functions like SUM, AVERAGE, etc.");
-        }
-        
-        // Fallback to Convert for other IConvertible types
-        return Convert.ToDouble(value);
-    }
 
     private string GetText(Node node)
     {
@@ -325,8 +292,8 @@ public class AstTranslator
 
             Func<IEvaluationContext, object> calc = ctx =>
             {
-                var l = ConvertToDouble(leftCalc(ctx));
-                var r = ConvertToDouble(rightCalc(ctx));
+                var l = TypeConverter.ToDouble(leftCalc(ctx));
+                var r = TypeConverter.ToDouble(rightCalc(ctx));
                 return op switch
                 {
                     // Arithmetic operators
@@ -428,11 +395,11 @@ public class AstTranslator
                 {
                     if (val is double[] arr)
                     {
-                         foreach(var o in arr) flatValues.Add(ConvertToDouble(o));
+                         foreach(var o in arr) flatValues.Add(TypeConverter.ToDouble(o));
                     }
                     else
                     {
-                        flatValues.Add(ConvertToDouble(val));
+                        flatValues.Add(TypeConverter.ToDouble(val));
                     }
                 }
                 
@@ -449,8 +416,8 @@ public class AstTranslator
                     // values[0] is condition (1.0 is true, 0.0 is false)
                     if (rawValues.Count < 3) return 0.0;
                     
-                    var condition = ConvertToDouble(rawValues[0]);
-                    return condition != 0.0 ? ConvertToDouble(rawValues[1]) : ConvertToDouble(rawValues[2]);
+                    var condition = TypeConverter.ToDouble(rawValues[0]);
+                    return condition != 0.0 ? TypeConverter.ToDouble(rawValues[1]) : TypeConverter.ToDouble(rawValues[2]);
                 }
                 
                 return 0.0;
@@ -519,7 +486,7 @@ public class AstTranslator
                          }
                          
                          // Evaluate target expression in this new context
-                         var result = ConvertToDouble(targetCalc(childCtx));
+                         var result = TypeConverter.ToDouble(targetCalc(childCtx));
                          list.Add(result);
                      }
                      
@@ -558,7 +525,7 @@ public class AstTranslator
             
             Func<IEvaluationContext, object> newCalc = ctx =>
             {
-                var val = ConvertToDouble(calc(ctx));
+                var val = TypeConverter.ToDouble(calc(ctx));
                 return op switch
                 {
                     "+" => val,
@@ -632,8 +599,8 @@ public class AstTranslator
                             }
                             else
                             {
-                                // For non-string JsonElements, use ConvertToDouble
-                                return ConvertToDouble(val);
+                                // For non-string JsonElements, use TypeConverter
+                                return TypeConverter.ToDouble(val);
                             }
                         }
                         
@@ -722,7 +689,7 @@ public class AstTranslator
                             return val;
                         }
 
-                        return ConvertToDouble(val);
+                        return TypeConverter.ToDouble(val);
                     };
 
                     return (inputCalc, new List<GraphNode> { dep });
@@ -890,7 +857,7 @@ public class AstTranslator
             
             // Evaluate target expression for this item
             var resultObj = rangeNode.TargetCalculation(childCtx);
-            resultsList.Add(ConvertToDouble(resultObj));
+            resultsList.Add(TypeConverter.ToDouble(resultObj));
         }
         
         return resultsList.ToArray();

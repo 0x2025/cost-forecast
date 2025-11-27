@@ -331,8 +331,8 @@ public class GraphEvaluator
             }
             else
             {
-                // For non-string JsonElements, use ConvertToDouble
-                return ConvertToDouble(val);
+                // For non-string JsonElements, use TypeConverter
+                return TypeConverter.ToDouble(val);
             }
         }
         
@@ -421,43 +421,10 @@ public class GraphEvaluator
             return val;
         }
 
-        return ConvertToDouble(val);
+        return TypeConverter.ToDouble(val);
     }
 
-    private static double ConvertToDouble(object value)
-    {
-        if (value == null)
-            return 0.0;
 
-        // Handle JsonElement from API deserialization
-        if (value is System.Text.Json.JsonElement jsonElement)
-        {
-            return jsonElement.ValueKind switch
-            {
-                System.Text.Json.JsonValueKind.Number => jsonElement.GetDouble(),
-                System.Text.Json.JsonValueKind.String => double.TryParse(jsonElement.GetString(), out var d) ? d : throw new System.Exception($"Cannot convert string '{jsonElement.GetString()}' to number"),
-                System.Text.Json.JsonValueKind.True => 1.0,
-                System.Text.Json.JsonValueKind.False => 0.0,
-                System.Text.Json.JsonValueKind.Null => 0.0,
-                _ => throw new System.Exception($"Cannot convert JsonElement of type {jsonElement.ValueKind} to number")
-            };
-        }
-
-        // Handle primitive types from tests
-        if (value is double dbl) return dbl;
-        if (value is int i) return i;
-        if (value is long l) return l;
-        if (value is float f) return f;
-        if (value is decimal dec) return (double)dec;
-        
-        if (value is System.Array || value is System.Collections.IEnumerable && !(value is string))
-        {
-            throw new System.ArgumentException("Cannot convert array/collection to number directly. Use aggregation functions like SUM, AVERAGE, etc.");
-        }
-        
-        // Fallback to Convert for other IConvertible types
-        return System.Convert.ToDouble(value);
-    }
 
     /// <summary>
     /// Identifies the subgraph of nodes that are "volatile" (depend on ParamNodes or are ParamNodes).
