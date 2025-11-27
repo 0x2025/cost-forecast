@@ -1,15 +1,24 @@
 import React, { useState } from 'react';
-import { api, type SensitivityResponse } from '../../api';
-import type { InputRow } from '../../InputGrid';
+import { api } from '@costvela/api-client';
+import type { SensitivityResponse, InputRow } from '@costvela/types';
 import { TornadoChart } from '../charts/ChartDisplay/TornadoChart';
 import { SensitivityChart } from '../charts/ChartDisplay/SensitivityChart';
+import { formatLabel } from '../../utils/formatting';
 
 interface SensitivityTabProps {
     source: string;
     inputs: InputRow[];
+    translations?: Record<string, string>;
 }
 
-export const SensitivityTab: React.FC<SensitivityTabProps> = ({ source, inputs }) => {
+export const SensitivityTab: React.FC<SensitivityTabProps> = ({ source, inputs, translations }) => {
+    // ... (state declarations)
+
+    // ... (inside JSX)
+
+    // ...
+
+
     const [mode, setMode] = useState<'auto' | 'manual'>('auto');
     const [rangePercent, setRangePercent] = useState(40);
     const [steps, setSteps] = useState(5);
@@ -219,9 +228,16 @@ export const SensitivityTab: React.FC<SensitivityTabProps> = ({ source, inputs }
                     {results && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             {results.keyDrivers.length > 0 ? (
-                                <TornadoChart data={results.keyDrivers} />
+                                <TornadoChart data={results.keyDrivers.map(d => ({
+                                    ...d,
+                                    inputName: formatLabel(d.inputName, translations)
+                                }))} />
                             ) : results.series.length > 0 ? (
-                                <SensitivityChart data={results.series} />
+                                <SensitivityChart data={results.series.map(s => ({
+                                    ...s,
+                                    inputName: formatLabel(s.inputName, translations),
+                                    outputName: formatLabel(s.outputName, translations)
+                                }))} />
                             ) : (
                                 <div className="bg-white p-8 rounded-lg border border-slate-200 text-center text-slate-500">
                                     <p>No significant cost drivers found for the given range.</p>

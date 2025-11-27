@@ -1,5 +1,7 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { Download } from 'lucide-react';
+import { ScenarioDemo } from '../components/demo/ScenarioDemo';
+import { SensitivityDemo } from '../components/demo/SensitivityDemo';
 
 const scenarioData = [
     { month: 'Jan', Base: 100, Optimistic: 95, Pessimistic: 105 },
@@ -149,6 +151,25 @@ export const CaseStudy = () => {
                     </div>
 
                 </div>
+
+                {/* Interactive Demos - Inline as requested */}
+                <div className="mt-20 pt-16 border-t-2 border-slate-200">
+                    <div className="text-center mb-12">
+                        <h2 className="text-4xl font-serif font-bold text-executive-navy mb-4">
+                            Experience CostVela in Action
+                        </h2>
+                        <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+                            Try our interactive demos below to see how CostVela enables powerful scenario analysis and sensitivity testing.
+                        </p>
+                    </div>
+
+                    {/* Scenario Demo */}
+                    <ScenarioDemo />
+
+                    {/* Sensitivity Demo */}
+                    <SensitivityDemo />
+                </div>
+
             </div>
         </div>
     );

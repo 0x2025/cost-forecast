@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { GraphNode } from '../../api';
+import type { GraphNode } from '@costvela/types';
 import { ChartBuilder } from './ChartBuilder/ChartBuilder';
 import { ChartCard } from './ChartDisplay/ChartCard';
 import { BarChart } from './ChartDisplay/BarChart';

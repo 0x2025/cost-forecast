@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
-import { api, type BatchCalculationResponse } from '../../api';
-import type { InputRow } from '../../InputGrid';
+import { api } from '@costvela/api-client';
+import type { BatchCalculationResponse, InputRow } from '@costvela/types';
+import { formatLabel } from '../../utils/formatting';
 
 interface ScenariosTabProps {
     source: string;
     baselineInputs: InputRow[];
     onRefresh?: () => void;
+    translations?: Record<string, string>;
 }
+
+// ... (inside component)
+
+
 
 interface Scenario {
     id: string;
@@ -14,7 +20,7 @@ interface Scenario {
     inputs: Record<string, any>;
 }
 
-export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInputs }) => {
+export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInputs, translations }) => {
     const [scenarios, setScenarios] = useState<Scenario[]>([
         {
             id: 'baseline',
@@ -100,9 +106,9 @@ export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInpu
     );
 
     // Get all unique result keys from the first scenario's results
-    const resultKeys = results
-        ? Object.keys(results.results[scenarios[0]?.name] || {}).filter(k =>
-            results.results[scenarios[0]?.name]?.results?.[k] !== undefined
+    const resultKeys = (results && results.results && scenarios[0])
+        ? Object.keys(results.results[scenarios[0].name] || {}).filter(k =>
+            results.results[scenarios[0].name]?.results?.[k] !== undefined
         )
         : [];
 
@@ -197,7 +203,7 @@ export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInpu
                                     {allInputKeys.map(key => (
                                         <tr key={key} className="hover:bg-slate-50">
                                             <td className="px-4 py-3 text-sm font-medium text-slate-700 sticky left-0 bg-white">
-                                                {key}
+                                                {formatLabel(key, translations)}
                                             </td>
                                             {scenarios.map(scenario => (
                                                 <td key={scenario.id} className="px-4 py-3">
@@ -225,7 +231,7 @@ export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInpu
                                                 return (
                                                     <tr key={key} className="hover:bg-slate-50">
                                                         <td className="px-4 py-3 text-sm font-medium text-slate-700 sticky left-0 bg-white">
-                                                            {key}
+                                                            {formatLabel(key, translations)}
                                                         </td>
                                                         {scenarios.map((scenario, idx) => {
                                                             const value = results.results[scenario.name]?.results?.[key];

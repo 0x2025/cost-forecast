@@ -1,0 +1,22 @@
+{
+    "name": "costvela-monorepo",
+    "version": "1.0.0",
+    "private": true,
+    "description": "CostVela monorepo - Cost forecasting platform",
+    "scripts": {
+        "dev:frontend": "pnpm --filter costvela dev",
+        "dev:website": "pnpm --filter cost-forecast-marketing dev",
+        "dev:all": "pnpm --parallel --filter costvela --filter cost-forecast-marketing dev",
+        "build:packages": "pnpm --filter \"@costvela/*\" build",
+        "build:frontend": "pnpm --filter costvela build",
+        "build:website": "pnpm --filter cost-forecast-marketing build",
+        "build:all": "pnpm run build:packages && pnpm --parallel --filter costvela --filter cost-forecast-marketing build",
+        "lint": "pnpm --recursive lint",
+        "clean": "pnpm --recursive exec rm -rf node_modules dist && rm -rf node_modules"
+    },
+    "engines": {
+        "node": ">=18.0.0",
+        "pnpm": ">=8.0.0"
+    },
+    "packageManager": "pnpm@8.15.0"
+}

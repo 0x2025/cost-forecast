@@ -9,7 +9,7 @@ import {
     ResponsiveContainer,
     Cell
 } from 'recharts';
-import type { CostDriver } from '../../../api';
+import type { CostDriver } from '@costvela/types';
 
 interface TornadoChartProps {
     data: CostDriver[];

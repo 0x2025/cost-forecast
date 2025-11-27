@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@costvela/ui": "workspace:*",
+    "@costvela/api-client": "workspace:*",
+    "@costvela/types": "workspace:*",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.554.0",

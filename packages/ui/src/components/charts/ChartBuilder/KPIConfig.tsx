@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { GraphNode } from '../../../api';
+import type { GraphNode } from '@costvela/types';
 
 interface KPIConfigProps {
     nodes: GraphNode[];

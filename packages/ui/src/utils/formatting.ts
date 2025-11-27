@@ -44,3 +44,33 @@ export function parseFormattedNumber(value: string): string {
     if (!value) return '';
     return value.replace(/,/g, '');
 }
+
+/**
+ * Formats a key (snake_case, camelCase) into a human-readable label.
+ * Optionally accepts a dictionary of translations/overrides.
+ * 
+ * Example: "units_produced" -> "Units produced"
+ * Example: "unitsProduced" -> "Units Produced"
+ * Example: "EBITDA" -> "EBITDA"
+ * 
+ * @param key The key to format
+ * @param translations Optional dictionary of key -> label
+ * @returns Formatted label
+ */
+export function formatLabel(key: string, translations?: Record<string, string>): string {
+    if (!key) return '';
+
+    // Check translations first
+    if (translations && translations[key]) {
+        return translations[key];
+    }
+
+    // Replace underscores with spaces
+    let label = key.replace(/_/g, ' ');
+
+    // Insert space before capital letters (camelCase)
+    label = label.replace(/([a-z])([A-Z])/g, '$1 $2');
+
+    // Capitalize the first letter
+    return label.charAt(0).toUpperCase() + label.slice(1);
+}

@@ -1,4 +1,4 @@
-import type { GraphNode } from '../../../api';
+import type { GraphNode } from '@costvela/types';
 
 export interface RangeGroup {
     parentId: string;

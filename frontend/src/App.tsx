@@ -1,16 +1,14 @@
 import { useState, useMemo, useEffect } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
-import { api, type CalculationResponse } from './api';
+import { api } from '@costvela/api-client';
+import type { CalculationResponse } from '@costvela/types';
 import { useTreeSitter, treeSitterPlugin, myHighlightStyle, dslAutocomplete, extractInputDeclarations } from './useTreeSitter';
-import { ScenariosTab } from './components/scenarios/ScenariosTab';
-import { SensitivityTab } from './components/sensitivity/SensitivityTab';
+import { ScenariosTab, SensitivityTab, ChartsTab, formatNumber, parseFormattedNumber } from '@costvela/ui';
 import { syntaxHighlighting } from '@codemirror/language';
 import { InputGrid, type InputRow } from './InputGrid';
 import { GraphVisualization } from './GraphVisualization';
-import { ChartsTab } from './components/charts/ChartsTab';
 import { HelpPanel } from './components/HelpPanel';
 import { AIGenerator } from './components/AIGenerator';
-import { formatNumber, parseFormattedNumber } from './utils/formatting';
 
 const STORAGE_KEY_SOURCE = 'costvela_source';
 const STORAGE_KEY_INPUTS = 'costvela_inputs';

@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@costvela/ui": "workspace:*",
+    "@costvela/api-client": "workspace:*",
+    "@costvela/types": "workspace:*",
     "@codemirror/lang-javascript": "^6.2.4",
     "@tanstack/react-table": "^8.21.3",
     "@uiw/react-codemirror": "^4.25.3",

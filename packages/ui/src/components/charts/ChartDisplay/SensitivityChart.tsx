@@ -10,9 +10,9 @@ import {
     Legend,
     ReferenceLine
 } from 'recharts';
-import type { SensitivitySeries } from '../../../api';
-
+import type { SensitivitySeries } from '@costvela/types';
 import { useIntersectionObserver } from '../../../hooks/useIntersectionObserver';
+
 
 interface SensitivityChartProps {
     data: SensitivitySeries[];

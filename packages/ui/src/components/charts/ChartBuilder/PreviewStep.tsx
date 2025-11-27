@@ -1,5 +1,5 @@
 import React from 'react';
-import type { GraphNode } from '../../../api';
+import type { GraphNode } from '@costvela/types';
 import { extractCompareData, extractRangeData, extractKPIValue } from '../utils/chartDataExtractor';
 import { BarChart } from '../ChartDisplay/BarChart';
 import { PieChart } from '../ChartDisplay/PieChart';

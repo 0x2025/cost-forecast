@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { GraphNode } from '../../../api';
+import type { GraphNode } from '@costvela/types';
 import { PatternSelector, type ChartPattern } from './PatternSelector';
 import { CompareConfig } from './CompareConfig';
 import { BreakdownConfig } from './BreakdownConfig';
