@@ -118,20 +118,7 @@ export const PlaygroundCard = ({ config }: PlaygroundCardProps) => {
                 </div>
             </div>
 
-            {/* Insights */}
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
-                <h4 className="text-sm font-semibold text-executive-blue uppercase tracking-wide mb-3">
-                    💡 Why This Beats Excel
-                </h4>
-                <ul className="space-y-2">
-                    {config.insights.map((insight, idx) => (
-                        <li key={idx} className="text-slate-700 text-sm leading-relaxed flex items-start">
-                            <span className="text-executive-blue mr-2">•</span>
-                            <span>{insight}</span>
-                        </li>
-                    ))}
-                </ul>
-            </div>
+
 
             {/* Model Code Viewer */}
             <div className="border border-slate-200 rounded-xl overflow-hidden">

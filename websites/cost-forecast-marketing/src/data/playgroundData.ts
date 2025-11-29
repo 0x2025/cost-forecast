@@ -27,7 +27,7 @@ export interface PlaygroundConfig {
     scenarios: ScenarioConfig[];
     dsl: string;
     calculations: (inputs: Record<string, number>) => Record<string, number>;
-    insights: string[];
+
 }
 
 // ===========================
@@ -143,11 +143,7 @@ total_monthly_cost = vm_monthly_cost + db_cost + data_transfer_cost`,
             cost_per_instance: vmMonthlyCost / totalInstances
         };
     },
-    insights: [
-        'Auto-scaling is non-linear: Going from 1K to 10K req/s only 4x your VMs, but 100K req/s requires 25x',
-        'Database tier jumps create cost cliffs—upgrading from Standard to Premium doubles DB costs',
-        'Data transfer becomes the dominant cost at high scale (>5TB/month)'
-    ]
+
 };
 
 // ===========================
@@ -287,11 +283,7 @@ total_project_cost = base_labor_cost + overhead_cost + infrastructure_cost`,
             total_team_size: totalTeamSize
         };
     },
-    insights: [
-        'Shortening duration by 33% (12mo → 8mo) doesn\'t reduce cost—you need more expensive seniors',
-        'A team of 8 seniors costs 2.5x more than 8 juniors, but delivers faster (quality vs. cost tradeoff)',
-        'Fixed overhead (15%) and infrastructure make small teams inefficient on long projects'
-    ]
+
 };
 
 // ===========================
@@ -413,11 +405,7 @@ cost_per_unit = total_cost / production_volume`,
             overtime_active: overtimeMultiplier > 1 ? 1 : 0
         };
     },
-    insights: [
-        'Fixed overhead of $50K dominates at low volumes—10K units = $5 per unit in overhead alone',
-        'There\'s a sweet spot around 50K-75K units where cost per unit is lowest',
-        'Above 75K units, overtime kicks in (+50% wage), making margins worse despite higher volume'
-    ]
+
 };
 
 // ===========================
@@ -530,11 +518,7 @@ margin_percentage = (gross_profit / total_revenue) * 100`,
             margin_percentage: marginPercentage
         };
     },
-    insights: [
-        'Enterprise tier ($499) has highest revenue but often lowest margin due to 2x support tickets per user',
-        'Pro tier ($99) is the sweet spot—moderate support needs, good infrastructure utilization',
-        'Starter tier ($29) only works at scale (500+ users) because fixed costs dominate'
-    ]
+
 };
 
 // ===========================
@@ -687,11 +671,7 @@ cost_per_acquisition = total_budget / total_customers`,
             cost_per_acquisition: costPerAcquisition
         };
     },
-    insights: [
-        'Facebook has lowest CPC ($2) but also lowest conversion (2%)—cheap clicks ≠ cheap customers',
-        'Google delivers best ROI despite $5 CPC because 5% conversion rate is 2.5x Facebook\'s',
-        'Budget allocation matters more than channel choice—a 70/15/15 split beats 33/33/33 by 12% ROI'
-    ]
+
 };
 
 // Export all playgrounds

@@ -20,7 +20,7 @@ export const Navbar = () => {
                     <div className="hidden md:flex items-center space-x-8">
                         <Link to="/" className={`text-sm font-medium transition-colors ${isActive('/') ? 'text-executive-blue' : 'text-slate-600 hover:text-executive-navy'}`}>Home</Link>
                         <Link to="/case-study" className={`text-sm font-medium transition-colors ${isActive('/case-study') ? 'text-executive-blue' : 'text-slate-600 hover:text-executive-navy'}`}>Case Studies</Link>
-                        <Link to="/playgrounds" className={`text-sm font-medium transition-colors ${isActive('/playgrounds') ? 'text-executive-blue' : 'text-slate-600 hover:text-executive-navy'}`}>Playgrounds</Link>
+                        <Link to="/playgrounds" className={`text-sm font-medium transition-colors ${isActive('/playgrounds') ? 'text-executive-blue' : 'text-slate-600 hover:text-executive-navy'}`}>Use Cases</Link>
                         <a href="#contact" className="px-4 py-2 bg-executive-navy text-white text-sm font-medium rounded-md hover:bg-slate-800 transition-colors">
                             Book Demo
                         </a>

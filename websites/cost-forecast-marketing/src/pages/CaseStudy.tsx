@@ -106,10 +106,9 @@ export const CaseStudy = () => {
                             Experience CostVela in Action
                         </h2>
                         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-                            Try our interactive demos below to see how CostVela enables powerful scenario analysis and sensitivity testing.
+                            Try our simulated interactive demos below to see how CostVela enables powerful scenario analysis and sensitivity testing.
                         </p>
                     </div>
-
                     {/* Scenario Demo */}
                     <ScenarioDemo
                         baselineInputs={baselineInputs}
