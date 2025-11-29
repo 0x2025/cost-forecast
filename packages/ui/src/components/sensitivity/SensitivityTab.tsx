@@ -9,9 +9,10 @@ interface SensitivityTabProps {
     source: string;
     inputs: InputRow[];
     translations?: Record<string, string>;
+    apiClient?: any; // Allow injecting a custom API client (e.g. for mocks)
 }
 
-export const SensitivityTab: React.FC<SensitivityTabProps> = ({ source, inputs, translations }) => {
+export const SensitivityTab: React.FC<SensitivityTabProps> = ({ source, inputs, translations, apiClient }) => {
     // ... (state declarations)
 
     // ... (inside JSX)
@@ -56,7 +57,9 @@ export const SensitivityTab: React.FC<SensitivityTabProps> = ({ source, inputs, 
             // For now, we track all numeric outputs. In future, we can let user select.
             const outputMetrics: string[] = [];
 
-            const response = await api.analyzeSensitivity(
+            // Use injected client or default api
+            const client = apiClient || api;
+            const response = await client.analyzeSensitivity(
                 source,
                 inputRecord,
                 inputsToVary,

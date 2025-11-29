@@ -4,6 +4,8 @@ import type { InputRow } from '@costvela/types';
 
 import { CASE_STUDY_DSL } from '../../data/caseStudyData';
 
+import { marketingApi } from '../../utils/marketingApiClient';
+
 interface ScenarioDemoProps {
     baselineInputs: InputRow[];
     onBaselineChange: (inputs: InputRow[]) => void;
@@ -37,6 +39,7 @@ export const ScenarioDemo: React.FC<ScenarioDemoProps> = ({ baselineInputs, onBa
                         baselineInputs={baselineInputs}
                         onBaselineChange={onBaselineChange}
                         initialScenarios={initialScenarios}
+                        apiClient={marketingApi}
                     />
                 </div>
 

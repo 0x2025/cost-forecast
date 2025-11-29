@@ -2,11 +2,11 @@
 // Falls back to mock data when backend is unavailable
 
 import { api } from '@costvela/api-client';
-import type { BatchCalculationResponse, SensitivityAnalysisResponse } from '@costvela/types';
-import { MOCK_SCENARIO_RESPONSE, MOCK_SENSITIVITY_RESPONSE } from './mockApiData';
+import type { BatchCalculationResponse, SensitivityResponse } from '@costvela/types';
+import { MOCK_SCENARIO_RESPONSE, MOCK_SENSITIVITY_RESPONSE } from '../data/mockApiData';
 
 class MarketingApiClient {
-    private useMockData = false;
+    private useMockData = true;
 
     async calculateBatch(source: string, scenarios: Record<string, Record<string, any>>): Promise<BatchCalculationResponse> {
         if (this.useMockData) {
@@ -27,15 +27,21 @@ class MarketingApiClient {
     async analyzeSensitivity(
         source: string,
         baseline: Record<string, any>,
-        outputKey: string
-    ): Promise<SensitivityAnalysisResponse> {
+        _outputKey: string
+    ): Promise<SensitivityResponse> {
         if (this.useMockData) {
             console.log('[Marketing API] Using mock sensitivity data');
             return MOCK_SENSITIVITY_RESPONSE;
         }
 
         try {
-            const response = await api.analyzeSensitivity(source, baseline, outputKey);
+            // Pass empty arrays for inputsToVary and outputMetrics to match default behavior
+            const response = await api.analyzeSensitivity(
+                source,
+                baseline,
+                [], // inputsToVary (empty = auto-detect)
+                []  // outputMetrics (empty = all numeric)
+            );
             return response;
         } catch (error) {
             console.warn('[Marketing API] Backend unavailable, using mock data:', error);
@@ -49,15 +55,10 @@ class MarketingApiClient {
 
         // Map scenario names to mock responses
         Object.keys(scenarios).forEach((scenarioName) => {
-            const mockResult = MOCK_SCENARIO_RESPONSE.results.find(r =>
-                r.name.toLowerCase() === scenarioName.toLowerCase()
-            );
+            const mockResult = MOCK_SCENARIO_RESPONSE.results[scenarioName as keyof typeof MOCK_SCENARIO_RESPONSE.results];
 
             if (mockResult) {
-                results[scenarioName] = {
-                    results: mockResult.outputs,
-                    evaluatedGraph: null
-                };
+                results[scenarioName] = mockResult;
             }
         });
 

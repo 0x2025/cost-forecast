@@ -20,6 +20,7 @@ interface ScenariosTabProps {
     translations?: Record<string, string>;
     onBaselineChange?: (inputs: InputRow[]) => void;
     initialScenarios?: Scenario[];
+    apiClient?: any; // Allow injecting a custom API client (e.g. for mocks)
 }
 
 export interface Scenario {
@@ -47,7 +48,7 @@ const COLORS = [
     '#713f12', // Warm brown
 ];
 
-export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInputs, translations, onBaselineChange, initialScenarios }) => {
+export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInputs, translations, onBaselineChange, initialScenarios, apiClient }) => {
     const [scenarios, setScenarios] = useState<Scenario[]>(
         initialScenarios || [
             {
@@ -103,7 +104,9 @@ export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInpu
                 return acc;
             }, {} as Record<string, Record<string, any>>);
 
-            const response = await api.calculateBatch(source, scenarioMap);
+            // Use injected client or default api
+            const client = apiClient || api;
+            const response = await client.calculateBatch(source, scenarioMap);
             setResults(response);
 
             // Check for API level errors
