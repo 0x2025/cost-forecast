@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { Download } from 'lucide-react';
 import { ScenarioDemo } from '../components/demo/ScenarioDemo';
 import { SensitivityDemo } from '../components/demo/SensitivityDemo';
 import { CASE_STUDY_INPUTS, OPTIMISTIC_SCENARIO_INPUTS, PESSIMISTIC_SCENARIO_INPUTS } from '../data/caseStudyData';
