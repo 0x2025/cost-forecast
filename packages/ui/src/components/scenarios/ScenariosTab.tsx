@@ -18,30 +18,52 @@ interface ScenariosTabProps {
     baselineInputs: InputRow[];
     onRefresh?: () => void;
     translations?: Record<string, string>;
+    onBaselineChange?: (inputs: InputRow[]) => void;
+    initialScenarios?: Scenario[];
 }
 
-interface Scenario {
+export interface Scenario {
     id: string;
     name: string;
     inputs: Record<string, any>;
 }
 
-const COLORS = ['#0f172a', '#0f766e', '#b45309', '#0052cc', '#ef4444', '#8b5cf6'];
+const COLORS = [
+    '#0f172a', // Deep navy (primary)
+    '#134e4a', // Dark teal
+    '#92400e', // Dark amber/bronze
+    '#1e3a8a', // Royal blue
+    '#7f1d1d', // Burgundy/wine
+    '#374151', // Cool gray
+    '#115e59', // Teal
+    '#78350f', // Copper/brown
+    '#1e40af', // Medium blue
+    '#64748b', // Slate gray
+    '#0d9488', // Professional teal
+    '#854d0e', // Muted gold
+    '#475569', // Steel gray
+    '#0c4a6e', // Deep blue
+    '#166534', // Forest green
+    '#713f12', // Warm brown
+];
 
-export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInputs, translations }) => {
-    const [scenarios, setScenarios] = useState<Scenario[]>([
-        {
-            id: 'baseline',
-            name: 'Baseline',
-            inputs: baselineInputs.reduce((acc, row) => {
-                if (row.key.trim()) acc[row.key] = row.value;
-                return acc;
-            }, {} as Record<string, any>)
-        }
-    ]);
+export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInputs, translations, onBaselineChange, initialScenarios }) => {
+    const [scenarios, setScenarios] = useState<Scenario[]>(
+        initialScenarios || [
+            {
+                id: 'baseline',
+                name: 'Baseline',
+                inputs: baselineInputs.reduce((acc, row) => {
+                    if (row.key.trim()) acc[row.key] = row.value;
+                    return acc;
+                }, {} as Record<string, any>)
+            }
+        ]
+    );
     const [results, setResults] = useState<BatchCalculationResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [hoveredSeries, setHoveredSeries] = useState<string | null>(null);
 
     const handleAddScenario = () => {
         const name = prompt('Enter scenario name:');
@@ -99,9 +121,20 @@ export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInpu
     const handleInputChange = (scenarioId: string, key: string, value: string) => {
         setScenarios(scenarios.map(s => {
             if (s.id === scenarioId) {
+                const updatedInputs = { ...s.inputs, [key]: value };
+
+                // Notify parent if baseline scenario is being modified
+                if (scenarioId === 'baseline' && onBaselineChange) {
+                    const inputRows: InputRow[] = Object.entries(updatedInputs).map(([k, v]) => ({
+                        key: k,
+                        value: v
+                    }));
+                    onBaselineChange(inputRows);
+                }
+
                 return {
                     ...s,
-                    inputs: { ...s.inputs, [key]: value }
+                    inputs: updatedInputs
                 };
             }
             return s;
@@ -228,16 +261,24 @@ export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInpu
                                                 <td className="px-4 py-3 text-sm font-medium text-slate-700 sticky left-0 bg-white">
                                                     {formatLabel(key, translations)}
                                                 </td>
-                                                {scenarios.map(scenario => (
-                                                    <td key={scenario.id} className="px-4 py-3">
-                                                        <input
-                                                            type="text"
-                                                            value={scenario.inputs[key] || ''}
-                                                            onChange={(e) => handleInputChange(scenario.id, key, e.target.value)}
-                                                            className="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-900 text-center"
-                                                        />
-                                                    </td>
-                                                ))}
+                                                {scenarios.map(scenario => {
+                                                    const isBaseline = scenario.id === 'baseline';
+                                                    return (
+                                                        <td key={scenario.id} className="px-4 py-3">
+                                                            <input
+                                                                type="text"
+                                                                value={scenario.inputs[key] || ''}
+                                                                onChange={(e) => handleInputChange(scenario.id, key, e.target.value)}
+                                                                disabled={isBaseline}
+                                                                readOnly={isBaseline}
+                                                                className={`w-full px-2 py-1 text-sm border rounded focus:outline-none text-center ${isBaseline
+                                                                    ? 'bg-slate-50 border-slate-200 text-slate-600 cursor-not-allowed'
+                                                                    : 'border-slate-300 focus:ring-1 focus:ring-slate-900'
+                                                                    }`}
+                                                            />
+                                                        </td>
+                                                    );
+                                                })}
                                             </tr>
                                         ))}
 
@@ -320,7 +361,11 @@ export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInpu
                                                     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                                                 }}
                                             />
-                                            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                                            <Legend
+                                                wrapperStyle={{ paddingTop: '20px' }}
+                                                onMouseEnter={(e) => setHoveredSeries(e.dataKey as string)}
+                                                onMouseLeave={() => setHoveredSeries(null)}
+                                            />
                                             {resultKeys.filter(key => typeof chartData[0]?.[key] === 'number').map((key, index) => (
                                                 <Bar
                                                     key={key}
@@ -328,6 +373,9 @@ export const ScenariosTab: React.FC<ScenariosTabProps> = ({ source, baselineInpu
                                                     name={formatLabel(key, translations)}
                                                     fill={COLORS[index % COLORS.length]}
                                                     radius={[4, 4, 0, 0]}
+                                                    opacity={hoveredSeries === null || hoveredSeries === key ? 1 : 0.3}
+                                                    onMouseEnter={() => setHoveredSeries(key)}
+                                                    onMouseLeave={() => setHoveredSeries(null)}
                                                 />
                                             ))}
                                         </BarChart>

@@ -1,8 +1,46 @@
+import { useState, useMemo } from 'react';
 import { Download } from 'lucide-react';
 import { ScenarioDemo } from '../components/demo/ScenarioDemo';
 import { SensitivityDemo } from '../components/demo/SensitivityDemo';
+import { CASE_STUDY_INPUTS, OPTIMISTIC_SCENARIO_INPUTS, PESSIMISTIC_SCENARIO_INPUTS } from '../data/caseStudyData';
+import type { InputRow } from '@costvela/types';
+import type { Scenario } from '@costvela/ui';
 
 export const CaseStudy = () => {
+    // Lift baseline state to share between scenario and sensitivity demos
+    const [baselineInputs, setBaselineInputs] = useState<InputRow[]>(CASE_STUDY_INPUTS);
+
+    const handleBaselineChange = (inputs: InputRow[]) => {
+        setBaselineInputs(inputs);
+    };
+
+    // Helper to convert InputRow[] to inputs object
+    const inputRowsToObject = (rows: InputRow[]): Record<string, any> => {
+        return rows.reduce((acc, row) => {
+            if (row.key.trim()) acc[row.key] = row.value;
+            return acc;
+        }, {} as Record<string, any>);
+    };
+
+    // Create initial scenarios
+    const initialScenarios: Scenario[] = useMemo(() => [
+        {
+            id: 'baseline',
+            name: 'Baseline',
+            inputs: inputRowsToObject(baselineInputs)
+        },
+        {
+            id: 'optimistic',
+            name: 'Optimistic',
+            inputs: inputRowsToObject(OPTIMISTIC_SCENARIO_INPUTS)
+        },
+        {
+            id: 'pessimistic',
+            name: 'Pessimistic',
+            inputs: inputRowsToObject(PESSIMISTIC_SCENARIO_INPUTS)
+        }
+    ], [baselineInputs]);
+
     return (
         <div className="bg-white pt-24 pb-20">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -85,10 +123,14 @@ export const CaseStudy = () => {
                     </div>
 
                     {/* Scenario Demo */}
-                    <ScenarioDemo />
+                    <ScenarioDemo
+                        baselineInputs={baselineInputs}
+                        onBaselineChange={handleBaselineChange}
+                        initialScenarios={initialScenarios}
+                    />
 
                     {/* Sensitivity Demo */}
-                    <SensitivityDemo />
+                    <SensitivityDemo baselineInputs={baselineInputs} />
                 </div>
 
             </div>

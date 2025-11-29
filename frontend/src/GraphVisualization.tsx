@@ -1,63 +1,47 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useRef, memo, useCallback } from 'react';
 import {
     ReactFlow,
     Background,
     Controls,
     type Node,
     type Edge,
-    useNodesState,
-    useEdgesState,
+    type NodeChange,
+    type EdgeChange,
+    applyNodeChanges,
+    applyEdgeChanges,
     MarkerType,
     ConnectionLineType,
     Handle,
     Position,
-
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import type { GraphData } from './api';
-import ELK, { type ElkNode } from 'elkjs/lib/elk.bundled';
+import type { GraphData } from '@costvela/types';
+import dagre from 'dagre';
 
 interface GraphVisualizationProps {
     graphData: GraphData | null;
 }
 
 // Custom Node Component
-const CustomNode = ({ data }: { data: any }) => {
-    const hasChildren = data.hasChildren || false;
-    const isCollapsed = data.isCollapsed || false;
-    const childCount = data.childCount || 0;
+const CustomNode = memo(({ data, isConnectable }: any) => {
+    const { label, type } = data;
 
     return (
         <div className="h-full w-full flex items-center justify-center relative group">
-            {/* Source on LEFT (outputs flow left), Target on RIGHT (inputs from right) */}
             <Handle
                 type="source"
                 position={Position.Left}
-                isConnectable={false}
+                isConnectable={isConnectable}
                 className="!bg-slate-400 !w-2 !h-2 !border-2 !border-white"
             />
 
             <div className="flex flex-col items-center">
                 <div className="text-[10px] font-bold mb-1 opacity-60 uppercase tracking-wider text-slate-600">
-                    {data.type}
+                    {type}
                 </div>
                 <div className="font-mono font-medium text-sm whitespace-pre-wrap break-words max-w-[180px] text-center leading-tight">
-                    {data.label}
-                    {data.metadata?.expression && (
-                        <div className="text-[10px] opacity-60 mt-1 font-normal text-slate-500 truncate max-w-[160px]">{data.metadata.expression}</div>
-                    )}
+                    {label}
                 </div>
-
-                {/* Collapse/Expand Indicator */}
-                {hasChildren && (
-                    <div className="mt-2 text-[10px] font-semibold bg-white/50 px-2 py-0.5 rounded-full border border-black/5 backdrop-blur-sm transition-colors hover:bg-white/80" style={{ color: 'inherit' }}>
-                        {isCollapsed ? (
-                            <span className="flex items-center gap-1">▶ {childCount} hidden</span>
-                        ) : (
-                            <span className="flex items-center gap-1">▼ {childCount} shown</span>
-                        )}
-                    </div>
-                )}
             </div>
 
             <Handle
@@ -68,272 +52,220 @@ const CustomNode = ({ data }: { data: any }) => {
             />
         </div>
     );
-};
+});
 
 const nodeTypes = {
     custom: CustomNode,
 };
 
-// Node style based on type
-const getNodeStyle = (type: string) => {
-    const baseStyle = {
-        padding: '14px 28px',
-        fontSize: '12px',
-        fontWeight: 600,
-        border: '2px solid',
-        minWidth: '220px',
-        textAlign: 'center' as const,
-        fontFamily: 'var(--font-sans)',
-        boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
-        transition: 'all 0.2s ease',
-    };
-
-    switch (type) {
-        case 'param':
-            return {
-                ...baseStyle,
-                background: '#ffffff',
-                borderColor: '#0f766e', // teal-700
-                color: '#0f766e',
-            }; case 'input':
-            return {
-                ...baseStyle,
-                background: '#ffffff',
-                borderColor: '#0052cc', // executive blue
-                color: '#0052cc',
-            };
-        case 'constant':
-            return {
-                ...baseStyle,
-                background: '#f8fafc', // slate-50
-                borderColor: '#64748b', // slate-500
-                color: '#475569', // slate-600
-            };
-        case 'formula':
-            return {
-                ...baseStyle,
-                background: '#ffffff',
-                borderColor: '#020617', // slate-950
-                color: '#020617',
-            };
-        case 'range':
-            return {
-                ...baseStyle,
-                background: '#ffffff',
-                borderColor: '#b45309', // amber-700
-                color: '#b45309',
-                fontWeight: 700,
-            };
-        case 'range_item':
-            return {
-                ...baseStyle,
-                background: '#fffbeb', // amber-50
-                borderColor: '#f59e0b', // amber-500
-                color: '#92400e', // amber-800
-            };
-        default:
-            return {
-                ...baseStyle,
-                background: '#ffffff',
-                borderColor: '#cbd5e1',
-                color: '#475569',
-            };
-    }
+// Static style map for stable references
+const BASE_STYLE = {
+    padding: '14px 28px',
+    fontSize: '12px',
+    fontWeight: 600,
+    border: '2px solid',
+    minWidth: '220px',
+    textAlign: 'center' as const,
+    fontFamily: 'var(--font-sans)',
+    boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+    transition: 'all 0.2s ease',
 };
 
+const STYLE_MAP: Record<string, React.CSSProperties> = {
+    param: { ...BASE_STYLE, background: '#ffffff', borderColor: '#0f766e', color: '#0f766e' },
+    input: { ...BASE_STYLE, background: '#ffffff', borderColor: '#0052cc', color: '#0052cc' },
+    constant: { ...BASE_STYLE, background: '#f8fafc', borderColor: '#64748b', color: '#475569' },
+    formula: { ...BASE_STYLE, background: '#ffffff', borderColor: '#020617', color: '#020617' },
+    range: { ...BASE_STYLE, background: '#ffffff', borderColor: '#b45309', color: '#b45309', fontWeight: 700 },
+    range_item: { ...BASE_STYLE, background: '#fffbeb', borderColor: '#f59e0b', color: '#92400e' },
+    default: { ...BASE_STYLE, background: '#ffffff', borderColor: '#cbd5e1', color: '#475569' },
+};
+
+const getNodeStyle = (type: string) => STYLE_MAP[type] || STYLE_MAP.default;
+
 export function GraphVisualization({ graphData }: GraphVisualizationProps) {
-    const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
-    const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-    const [algorithm, setAlgorithm] = useState<string>('layered');
-    const [edgeRouting] = useState<string>('ORTHOGONAL');
-    const [connectionType] = useState<ConnectionLineType>(ConnectionLineType.Bezier);
-    const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
-    const [nodeChildrenMap, setNodeChildrenMap] = useState<Map<string, string[]>>(new Map());
-    const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
-    const [fullLayoutNodes, setFullLayoutNodes] = useState<Node[]>([]); // Store complete layout
+    const [nodes, setNodes] = useState<Node[]>([]);
+    const [edges, setEdges] = useState<Edge[]>([]);
+    const [expansionPath, setExpansionPath] = useState<string[]>([]);
 
-    // Build hierarchy from graph data
-    const buildHierarchy = (graphData: GraphData) => {
+    // Position cache - once a node has a position, we keep it stable
+    const positionCache = useRef<Map<string, { x: number; y: number }>>(new Map());
+
+    // Build graph structure maps
+    const { childrenMap, parentsMap, leafNodeIds } = useMemo(() => {
+        if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
+            return {
+                childrenMap: new Map<string, string[]>(),
+                parentsMap: new Map<string, string[]>(),
+                leafNodeIds: new Set<string>()
+            };
+        }
+
         const childrenMap = new Map<string, string[]>();
-        const parentMap = new Map<string, string>();
+        const parentsMap = new Map<string, string[]>();
 
-        // Build parent-child relationships from edges
-        // In dependency graph: edge A→B means B depends on A
-        // So B is the parent (dependent), A is the child (dependency)
-        graphData.edges.forEach(edge => {
-            const child = edge.source;  // dependency
-            const parent = edge.target; // dependent
+        graphData.edges.forEach((edge) => {
+            if (!childrenMap.has(edge.source)) childrenMap.set(edge.source, []);
+            childrenMap.get(edge.source)!.push(edge.target);
 
-            if (!childrenMap.has(parent)) {
-                childrenMap.set(parent, []);
-            }
-            childrenMap.get(parent)!.push(child);
-            parentMap.set(child, parent);
+            if (!parentsMap.has(edge.target)) parentsMap.set(edge.target, []);
+            parentsMap.get(edge.target)!.push(edge.source);
         });
 
-        setNodeChildrenMap(childrenMap);
-
-        // Smart defaults: auto-collapse range nodes that have many range_item children
-        const autoCollapse = new Set<string>();
+        // Find leaf nodes (no children = final outputs, but exclude input/param)
+        // These are the starting points users see: total_12_month_revenue, etc.
+        const leafNodeIds = new Set<string>();
         graphData.nodes.forEach(node => {
-            // Collapse range nodes that have range_item children
-            if (node.type === 'range') {
-                const children = childrenMap.get(node.id) || [];
-                const hasRangeItems = children.some(childId => {
-                    const childNode = graphData.nodes.find(n => n.id === childId);
-                    return childNode?.type === 'range_item';
-                });
-                if (hasRangeItems && children.length > 3) { // Only auto-collapse if >3 items
-                    autoCollapse.add(node.id);
-                }
+            const hasChildren = childrenMap.has(node.id) && childrenMap.get(node.id)!.length > 0;
+            const isInputOrParam = node.type === 'input' || node.type === 'param';
+
+            if (!hasChildren && !isInputOrParam) {
+                leafNodeIds.add(node.id);
             }
         });
 
-        setCollapsedNodes(autoCollapse);
-    };
-
-    // Check if a node should be visible based on collapse state
-    const isNodeVisible = (nodeId: string, graphData: GraphData): boolean => {
-        // Find all parents (nodes that depend on this node)
-        const parentEdges = graphData.edges.filter(e => e.source === nodeId);
-
-        // If no parents, this is a leaf node (output) - always visible
-        if (parentEdges.length === 0) {
-            return true;
-        }
-
-        // Node is visible if AT LEAST ONE parent is expanded (not collapsed)
-        // Only hide if ALL parents are collapsed
-        const hasExpandedParent = parentEdges.some(edge => {
-            const parent = edge.target;
-            return !collapsedNodes.has(parent) && isNodeVisible(parent, graphData);
-        });
-
-        return hasExpandedParent;
-    };
-
-    // Build hierarchy only when graphData changes
-    useEffect(() => {
-        if (graphData && graphData.nodes && graphData.nodes.length > 0) {
-            buildHierarchy(graphData);
-        }
+        return { childrenMap, parentsMap, leafNodeIds };
     }, [graphData]);
 
+    // Determine visible nodes: leaves + expansion path + parents of deepest node
+    const visibleNodeIds = useMemo(() => {
+        const visible = new Set<string>();
 
-    // Calculate full layout only when graph data or layout settings change
-    useEffect(() => {
-        if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
-            setFullLayoutNodes([]);
-            return;
+        // Always show leaf nodes (final outputs)
+        leafNodeIds.forEach(id => visible.add(id));
+
+        // Show all nodes in the expansion path
+        expansionPath.forEach(nodeId => visible.add(nodeId));
+
+        // For the deepest expanded node, show its first-level parents
+        if (expansionPath.length > 0) {
+            const deepestNode = expansionPath[expansionPath.length - 1];
+            const parents = parentsMap.get(deepestNode) || [];
+            parents.forEach(parentId => visible.add(parentId));
         }
 
-        const elk = new ELK();
+        return visible;
+    }, [leafNodeIds, expansionPath, parentsMap]);
 
-        const layoutOptions = {
-            'elk.algorithm': algorithm,
-            'elk.direction': 'LEFT', // Output on left, dependencies on right (drill-down pattern)
-            'elk.spacing.nodeNode': '60',
-            'elk.layered.spacing.nodeNodeBetweenLayers': '120',
-            'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-            'elk.edgeRouting': edgeRouting,
-        };
-
-        // Layout ALL nodes (including those that will be hidden)
-        const graph: ElkNode = {
-            id: 'root',
-            layoutOptions: layoutOptions,
-            children: graphData.nodes.map((node) => ({
-                id: node.id,
-                width: 220,
-                height: 100,
-                labels: [{ text: node.label }],
-            })),
-            edges: graphData.edges.map((edge, idx) => ({
-                id: `e-${edge.source}-${edge.target}-${idx}`,
-                sources: [edge.source],
-                targets: [edge.target],
-            })),
-        };
-
-        elk.layout(graph)
-            .then((layoutedGraph) => {
-                // Create nodes with calculated positions
-                const layoutedNodes: Node[] = (layoutedGraph.children || []).map((node) => {
-                    const graphNode = graphData.nodes.find(n => n.id === node.id);
-                    const children = nodeChildrenMap.get(node.id) || [];
-
-                    return {
-                        id: node.id,
-                        type: 'custom',
-                        data: {
-                            label: graphNode?.displayName || graphNode?.label || node.id,
-                            metadata: graphNode?.metadata,
-                            type: graphNode?.type,
-                            hasChildren: children.length > 0,
-                            isCollapsed: false, // Will be updated by visibility filter
-                            childCount: children.length,
-                        },
-                        position: { x: node.x!, y: node.y! },
-                        style: getNodeStyle(graphNode?.type || 'default'),
-                    };
-                });
-
-                setFullLayoutNodes(layoutedNodes);
-
-                if (isInitialLoad) {
-                    setIsInitialLoad(false);
-                }
-            })
-            .catch(console.error);
-
-    }, [graphData, algorithm, edgeRouting, nodeChildrenMap, isInitialLoad]);
-
-    // Filter visible nodes based on collapse state (no re-layout)
+    // Update React Flow nodes and edges when visibility changes
     useEffect(() => {
-        if (!graphData || fullLayoutNodes.length === 0) {
+        if (!graphData || !graphData.nodes) {
             setNodes([]);
             setEdges([]);
             return;
         }
 
-        // Filter visible nodes
-        const visibleNodeIds = graphData.nodes
-            .filter(node => isNodeVisible(node.id, graphData))
-            .map(n => n.id);
+        // Filter visible graph nodes
+        const visibleGraphNodes = graphData.nodes.filter(n => visibleNodeIds.has(n.id));
+        const visibleGraphEdges = graphData.edges.filter(edge =>
+            visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)
+        );
 
-        // Update nodes with collapse state and filter hidden ones
-        const visibleNodes = fullLayoutNodes
-            .filter(node => visibleNodeIds.includes(node.id))
-            .map(node => ({
-                ...node,
+        // Calculate layout using dagre
+        const g = new dagre.graphlib.Graph();
+        g.setGraph({
+            rankdir: 'LR', // Left to right
+            nodesep: 60,
+            ranksep: 120,
+            marginx: 50,
+            marginy: 50
+        });
+        g.setDefaultEdgeLabel(() => ({}));
+
+        // Identify which nodes need layout (new nodes without cached positions)
+        const newNodeIds: string[] = [];
+        visibleGraphNodes.forEach(node => {
+            if (!positionCache.current.has(node.id)) {
+                newNodeIds.push(node.id);
+            }
+            g.setNode(node.id, { width: 220, height: 100 });
+        });
+
+        // Add edges to graph
+        visibleGraphEdges.forEach(edge => {
+            g.setEdge(edge.source, edge.target);
+        });
+
+        // Run dagre layout
+        dagre.layout(g);
+
+        // Update position cache for new nodes only
+        newNodeIds.forEach(nodeId => {
+            const dagreNode = g.node(nodeId);
+            if (dagreNode) {
+                positionCache.current.set(nodeId, {
+                    x: dagreNode.x,
+                    y: dagreNode.y
+                });
+            }
+        });
+
+        // Build React Flow nodes with cached positions
+        const flowNodes: Node[] = visibleGraphNodes.map(graphNode => {
+            const cachedPos = positionCache.current.get(graphNode.id);
+            const position = cachedPos || { x: 0, y: 0 };
+
+            return {
+                id: graphNode.id,
+                type: 'custom',
                 data: {
-                    ...node.data,
-                    isCollapsed: collapsedNodes.has(node.id),
+                    label: graphNode.displayName || graphNode.label || graphNode.id,
+                    type: graphNode.type,
                 },
-            }));
+                position,
+                style: getNodeStyle(graphNode.type || 'default'),
+            };
+        });
 
-        // Filter visible edges
-        const visibleEdges: Edge[] = graphData.edges
-            .filter(edge => visibleNodeIds.includes(edge.source) && visibleNodeIds.includes(edge.target))
-            .map((edge, idx) => ({
-                id: `e-${edge.source}-${edge.target}-${idx}`,
-                source: edge.source,
-                target: edge.target,
-                type: connectionType, // Use dynamic connection type from state
-                animated: true,
-                markerEnd: {
-                    type: MarkerType.ArrowClosed,
-                    width: 20,
-                    height: 20,
-                    color: '#94a3b8', // slate-400
-                },
-                style: { stroke: '#94a3b8', strokeWidth: 1.5 },
-            }));
+        // Build React Flow edges
+        const flowEdges: Edge[] = visibleGraphEdges.map((edge, idx) => ({
+            id: `e-${edge.source}-${edge.target}-${idx}`,
+            source: edge.source,
+            target: edge.target,
+            type: ConnectionLineType.Bezier,
+            animated: true,
+            markerEnd: {
+                type: MarkerType.ArrowClosed,
+                width: 20,
+                height: 20,
+                color: '#94a3b8',
+            },
+            style: { stroke: '#94a3b8', strokeWidth: 1.5 },
+        }));
 
-        setNodes(visibleNodes);
-        setEdges(visibleEdges);
+        setNodes(flowNodes);
+        setEdges(flowEdges);
 
-    }, [fullLayoutNodes, collapsedNodes, graphData, connectionType, setNodes, setEdges]);
+    }, [graphData, visibleNodeIds, setNodes, setEdges]);
+
+    // Handle React Flow node/edge changes
+    const onNodesChange = useCallback(
+        (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
+        []
+    );
+
+    const onEdgesChange = useCallback(
+        (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+        []
+    );
+
+    // Handle node click - expand to show dependencies
+    const onNodeClick = (_event: React.MouseEvent, node: Node) => {
+        const hasParents = parentsMap.get(node.id)?.length || 0;
+
+        if (hasParents > 0) {
+            // Check if node is already in path
+            const indexInPath = expansionPath.indexOf(node.id);
+
+            if (indexInPath >= 0) {
+                // Clicking a node in the path - truncate to that point
+                setExpansionPath(expansionPath.slice(0, indexInPath + 1));
+            } else {
+                // Expand - add to path (replaces previous expansion)
+                setExpansionPath([node.id]);
+            }
+        }
+    };
 
     if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
         return (
@@ -362,54 +294,33 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
     return (
         <div className="h-full bg-white border border-slate-900 flex flex-col relative overflow-hidden">
             {/* Controls Bar */}
-            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-4">
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                    <span>Layout Algorithm:</span>
-                    <select
-                        value={algorithm}
-                        onChange={(e) => setAlgorithm(e.target.value)}
-                        className="px-3 py-1.5 border border-slate-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                        <option value="layered">Layered (Hierarchical)</option>
-                        <option value="mrtree">Tree</option>
-                        <option value="force">Force-Directed</option>
-                        <option value="stress">Stress</option>
-                    </select>
-                </label>
+            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-4 justify-between">
+                <div className="flex items-center gap-3">
+                    <h3 className="text-sm font-semibold text-slate-700">Dependency Graph</h3>
+                </div>
+
+                <div className="text-sm text-slate-600">
+                    <span className="font-medium">{nodes.length}</span> visible nodes
+                    <span className="text-slate-400 ml-1">
+                        ({graphData?.nodes.length || 0} total)
+                    </span>
+                </div>
             </div>
 
             {/* Graph */}
-            <div className="flex-1">
+            <div className="flex-1 relative">
                 <ReactFlow
                     nodes={nodes}
                     edges={edges}
                     onNodesChange={onNodesChange}
                     onEdgesChange={onEdgesChange}
-                    onNodeClick={(_event, node) => {
-                        const children = nodeChildrenMap.get(node.id) || [];
-                        if (children.length > 0) {
-                            const newCollapsed = new Set(collapsedNodes);
-                            if (newCollapsed.has(node.id)) {
-                                newCollapsed.delete(node.id);
-                            } else {
-                                newCollapsed.add(node.id);
-                            }
-                            setCollapsedNodes(newCollapsed);
-                        }
-                    }}
+                    onNodeClick={onNodeClick}
                     nodeTypes={nodeTypes}
-                    fitViewOptions={{ duration: 200 }}
+                    fitView
                     attributionPosition="bottom-left"
-                    connectionLineType={ConnectionLineType.SimpleBezier}
-                    snapToGrid={true}
-                    nodesDraggable={true}
-                    nodesConnectable={false}
-                    elementsSelectable={true}
                 >
-                    <Background color="#cbd5e1" gap={20} size={1} />
-                    <Controls className="!bg-white !border-slate-200 !shadow-sm !rounded-lg overflow-hidden" />
-
-
+                    <Background />
+                    <Controls />
                 </ReactFlow>
             </div>
         </div>

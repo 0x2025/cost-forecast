@@ -24,3 +24,17 @@ export const CASE_STUDY_INPUTS: InputRow[] = [
     { key: 'Raw Material Cost', value: '200' },
     { key: 'Labor Cost', value: '80' },
 ];
+
+export const OPTIMISTIC_SCENARIO_INPUTS: InputRow[] = [
+    { key: 'Energy Price Index', value: '85' },
+    { key: 'Logistics Base Rate', value: '45' },
+    { key: 'Raw Material Cost', value: '180' },
+    { key: 'Labor Cost', value: '75' },
+];
+
+export const PESSIMISTIC_SCENARIO_INPUTS: InputRow[] = [
+    { key: 'Energy Price Index', value: '130' },
+    { key: 'Logistics Base Rate', value: '60' },
+    { key: 'Raw Material Cost', value: '230' },
+    { key: 'Labor Cost', value: '90' },
+];

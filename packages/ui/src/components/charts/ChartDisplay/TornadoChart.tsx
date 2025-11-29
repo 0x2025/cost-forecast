@@ -10,6 +10,7 @@ import {
     Cell
 } from 'recharts';
 import type { CostDriver } from '@costvela/types';
+import { formatNumber } from '../../../utils/formatting';
 
 interface TornadoChartProps {
     data: CostDriver[];
@@ -36,7 +37,7 @@ export const TornadoChart: React.FC<TornadoChartProps> = ({ data, height = 400 }
                         }}
                     >
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                        <XAxis type="number" />
+                        <XAxis type="number" tickFormatter={(value) => formatNumber(value)} />
                         <YAxis
                             type="category"
                             dataKey="inputName"
@@ -51,6 +52,7 @@ export const TornadoChart: React.FC<TornadoChartProps> = ({ data, height = 400 }
                                 borderRadius: '0.375rem',
                                 boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
                             }}
+                            formatter={(value: number) => [formatNumber(value), 'Impact Score']}
                         />
                         <Bar dataKey="impactScore" fill="#0f172a" radius={[0, 4, 4, 0]}>
                             {sortedData.map((_, index) => (

@@ -1,5 +1,5 @@
 // Export all UI components
-export { ScenariosTab } from './components/scenarios/ScenariosTab';
+export { ScenariosTab, type Scenario } from './components/scenarios/ScenariosTab';
 export { SensitivityTab } from './components/sensitivity/SensitivityTab';
 
 // Export chart components

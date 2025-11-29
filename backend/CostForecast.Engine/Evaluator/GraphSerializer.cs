@@ -118,6 +118,7 @@ public class GraphSerializer
         // Create edge DTOs (dependencies)
         foreach (var node in allNodes)
         {
+            // Standard dependencies
             foreach (var dependency in node.Dependencies)
             {
                 graphDto.Edges.Add(new GraphEdgeDto
@@ -125,6 +126,20 @@ public class GraphSerializer
                     Source = dependency.Name,
                     Target = node.Name
                 });
+            }
+            
+            // For RangeNode, also include TargetDependencies (template params)
+            // These are the params that belong to this range's evaluation context
+            if (node is RangeNode rangeNode)
+            {
+                foreach (var targetDep in rangeNode.TargetDependencies)
+                {
+                    graphDto.Edges.Add(new GraphEdgeDto
+                    {
+                        Source = targetDep.Name,
+                        Target = node.Name
+                    });
+                }
             }
         }
 
