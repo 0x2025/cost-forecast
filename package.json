@@ -14,5 +14,5 @@
         "lint": "pnpm --recursive lint",
         "clean": "pnpm --recursive exec rm -rf node_modules dist && rm -rf node_modules"
     },
-    "packageManager": "pnpm@8.15.0"
+    "packageManager": "pnpm@10.24.0"
 }
