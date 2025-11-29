@@ -92,7 +92,7 @@ export function GraphVisualization({ graphData }: GraphVisualizationProps) {
     const positionCache = useRef<Map<string, { x: number; y: number }>>(new Map());
 
     // Build graph structure maps
-    const { childrenMap, parentsMap, leafNodeIds } = useMemo(() => {
+    const { parentsMap, leafNodeIds } = useMemo(() => {
         if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
             return {
                 childrenMap: new Map<string, string[]>(),

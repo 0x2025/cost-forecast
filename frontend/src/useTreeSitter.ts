@@ -152,7 +152,7 @@ export function treeSitterPlugin(parser: Parser | null) {
             }
         },
         {
-            decorations: v => v.decorations
+            decorations: (v: any) => v.decorations
         }
     );
 
