@@ -64,49 +64,38 @@ export const CaseStudy = () => {
 
                 {/* Challenge & Solution Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mb-20">
-                    <div className="lg:col-span-2 space-y-8">
+                    <div className="lg:col-span-3 space-y-12">
                         <section>
-                            <h2 className="text-2xl font-serif font-bold text-executive-navy mb-4">The Challenge</h2>
+                            <h2 className="text-2xl font-serif font-bold text-executive-navy mb-4">The Challenge: When Excel Hits the Wall</h2>
                             <p className="text-slate-600 leading-relaxed mb-4">
                                 In early 2025, energy markets faced unprecedented volatility due to new carbon taxation policies and geopolitical shifts. Our client, a Tier-1 automotive supplier, needed to understand how these fluctuations would impact their unit economics across 12 different product lines.
                             </p>
                             <p className="text-slate-600 leading-relaxed">
-                                Traditional Excel models were breaking down under the complexity of multi-variable sensitivity analysis. They needed a robust, auditable way to simulate thousands of scenarios instantly.
+                                Their existing Excel models were massive, fragile beasts. Running a single sensitivity analysis meant manually changing a cell, recording the result, and repeating the process hundreds of times. It was slow, prone to copy-paste errors, and impossible to audit. The C-suite needed answers in minutes, not days.
                             </p>
                         </section>
 
                         <section>
-                            <h2 className="text-2xl font-serif font-bold text-executive-navy mb-4">The Solution</h2>
-                            <p className="text-slate-600 leading-relaxed">
-                                Using CostVela's <strong>Dynamic Graph Engine</strong>, the consultancy built a digital twin of the client's cost structure. This allowed them to:
+                            <h2 className="text-2xl font-serif font-bold text-executive-navy mb-4">The Solution: Dynamic Graph Modeling</h2>
+                            <p className="text-slate-600 leading-relaxed mb-6">
+                                Using CostVela's <strong>Dynamic Graph Engine</strong>, the consultancy built a digital twin of the client's cost structure. Unlike Excel, where logic is hidden in cells, CostVela maps every cost driver as a visible node in a dependency graph.
                             </p>
-                            <ul className="list-disc list-inside space-y-2 text-slate-600 mt-4 ml-4">
-                                <li>Ingest real-time energy index futures.</li>
-                                <li>Model non-linear relationships between logistics surcharges and fuel prices.</li>
-                                <li>Create an interactive dashboard for the C-suite to "play" with the assumptions.</li>
-                            </ul>
-                        </section>
-                    </div>
 
-                    <div className="bg-slate-50 p-8 rounded-xl border border-slate-100 h-fit">
-                        <h3 className="text-lg font-bold text-executive-navy mb-6">Key Metrics</h3>
-                        <div className="space-y-6">
-                            <div>
-                                <div className="text-3xl font-serif font-bold text-executive-blue">4 Hours</div>
-                                <div className="text-sm text-slate-500">Modeling time (down from 2 weeks)</div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
+                                    <h3 className="font-bold text-executive-navy mb-2">Instant Scenario Switching</h3>
+                                    <p className="text-slate-600 text-sm">
+                                        Instead of saving 50 different versions of a spreadsheet, they created one master model with infinite scenarios. Switching between "Optimistic" and "Doomsday" views became a single click.
+                                    </p>
+                                </div>
+                                <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
+                                    <h3 className="font-bold text-executive-navy mb-2">Automated Sensitivity</h3>
+                                    <p className="text-slate-600 text-sm">
+                                        The team used our Sensitivity Analysis tool to automatically stress-test 20+ variables simultaneously. They instantly identified that <strong>Logistics Surcharges</strong>—not raw material costs—were the biggest risk factor.
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <div className="text-3xl font-serif font-bold text-teal-accent">$2.4M</div>
-                                <div className="text-sm text-slate-500">Identified savings</div>
-                            </div>
-                            <div>
-                                <div className="text-3xl font-serif font-bold text-gold-accent">1,500+</div>
-                                <div className="text-sm text-slate-500">Scenarios simulated</div>
-                            </div>
-                        </div>
-                        <button className="w-full mt-8 py-3 bg-white border border-slate-200 text-executive-navy font-medium rounded-lg hover:bg-slate-100 transition-colors flex items-center justify-center">
-                            <Download className="h-4 w-4 mr-2" /> Download Full Report
-                        </button>
+                        </section>
                     </div>
                 </div>
 
