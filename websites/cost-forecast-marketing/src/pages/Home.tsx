@@ -1,4 +1,4 @@
-import { ArrowRight, FileSpreadsheet, AlertTriangle, GitBranch, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, FileSpreadsheet, AlertTriangle, GitBranch, CheckCircle2, Wand2, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const Home = () => {
@@ -142,6 +142,78 @@ export const Home = () => {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Modeling AI Section */}
+            <section className="py-24 bg-white overflow-hidden">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center max-w-3xl mx-auto mb-16">
+                        <div className="inline-flex items-center px-3 py-1 rounded-full bg-purple-50 border border-purple-100 text-purple-600 text-xs font-semibold tracking-wide uppercase mb-6">
+                            New Feature
+                        </div>
+                        <h2 className="text-3xl md:text-5xl font-serif font-bold text-executive-navy mb-6">
+                            From Excel to Engine in <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600">Seconds</span>
+                        </h2>
+                        <p className="text-lg text-slate-600 leading-relaxed">
+                            Don't start from scratch. Upload your legacy spreadsheets and let our Modeling AI automatically translate your formulas into robust CostVela logic.
+                        </p>
+                    </div>
+
+                    <div className="relative">
+                        {/* Connection Line */}
+                        <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-gradient-to-r from-slate-200 via-purple-200 to-slate-200 z-0"></div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative z-10">
+                            {/* Step 1 */}
+                            <div className="text-center group">
+                                <div className="relative inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-white border border-slate-100 shadow-xl mb-8 group-hover:-translate-y-2 transition-transform duration-300">
+                                    <div className="absolute inset-0 bg-slate-50 rounded-2xl transform rotate-6 group-hover:rotate-12 transition-transform duration-300 -z-10"></div>
+                                    <FileSpreadsheet className="h-10 w-10 text-slate-400" />
+                                    <div className="absolute -bottom-3 -right-3 bg-white px-2 py-1 rounded-md border border-slate-100 shadow-sm text-xs font-mono text-slate-400">.xlsx</div>
+                                </div>
+                                <h3 className="text-xl font-bold text-executive-navy mb-3">1. Upload Excel</h3>
+                                <p className="text-slate-600 text-sm leading-relaxed max-w-xs mx-auto">
+                                    Drag and drop your existing cost models. We support complex formulas and linked sheets.
+                                </p>
+                            </div>
+
+                            {/* Step 2 */}
+                            <div className="text-center group">
+                                <div className="relative inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-white border border-purple-100 shadow-xl shadow-purple-100/50 mb-8 group-hover:-translate-y-2 transition-transform duration-300">
+                                    <div className="absolute inset-0 bg-purple-50 rounded-2xl transform -rotate-3 group-hover:-rotate-6 transition-transform duration-300 -z-10"></div>
+                                    <Wand2 className="h-10 w-10 text-purple-600" />
+                                    <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-purple-600 text-white text-xs font-bold animate-pulse">AI</div>
+                                </div>
+                                <h3 className="text-xl font-bold text-executive-navy mb-3">2. AI Translation</h3>
+                                <p className="text-slate-600 text-sm leading-relaxed max-w-xs mx-auto">
+                                    Our engine analyzes dependencies, extracts input variables, and reconstructs your logic visually.
+                                </p>
+                            </div>
+
+                            {/* Step 3 */}
+                            <div className="text-center group">
+                                <div className="relative inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-white border border-teal-100 shadow-xl shadow-teal-100/50 mb-8 group-hover:-translate-y-2 transition-transform duration-300">
+                                    <div className="absolute inset-0 bg-teal-50 rounded-2xl transform rotate-3 group-hover:rotate-6 transition-transform duration-300 -z-10"></div>
+                                    <Zap className="h-10 w-10 text-teal-500" />
+                                </div>
+                                <h3 className="text-xl font-bold text-executive-navy mb-3">3. Instant Analysis</h3>
+                                <p className="text-slate-600 text-sm leading-relaxed max-w-xs mx-auto">
+                                    Immediately run sensitivity analysis and scenarios on your newly minted CostVela model.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-16 text-center">
+                        <div className="inline-flex items-center p-1 rounded-full bg-slate-100 border border-slate-200">
+                            <span className="px-3 py-1 rounded-full bg-white shadow-sm text-xs font-semibold text-slate-700 mr-3">Beta</span>
+                            <span className="text-sm text-slate-600 mr-3">Modeling AI is currently available for evaluation only.</span>
+                            <Link to="/contact" className="text-sm font-medium text-executive-navy hover:text-blue-600 transition-colors px-2">
+                                Request Access &rarr;
+                            </Link>
                         </div>
                     </div>
                 </div>
