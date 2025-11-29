@@ -1,0 +1,6 @@
+{
+    "buildCommand": "cd ../.. && pnpm run build:website",
+    "installCommand": "cd ../.. && pnpm install",
+    "framework": null,
+    "outputDirectory": "dist"
+}
