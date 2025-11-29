@@ -20,6 +20,7 @@ export const Navbar = () => {
                     <div className="hidden md:flex items-center space-x-8">
                         <Link to="/" className={`text-sm font-medium transition-colors ${isActive('/') ? 'text-executive-blue' : 'text-slate-600 hover:text-executive-navy'}`}>Home</Link>
                         <Link to="/case-study" className={`text-sm font-medium transition-colors ${isActive('/case-study') ? 'text-executive-blue' : 'text-slate-600 hover:text-executive-navy'}`}>Case Studies</Link>
+                        <Link to="/playgrounds" className={`text-sm font-medium transition-colors ${isActive('/playgrounds') ? 'text-executive-blue' : 'text-slate-600 hover:text-executive-navy'}`}>Playgrounds</Link>
                         <a href="#contact" className="px-4 py-2 bg-executive-navy text-white text-sm font-medium rounded-md hover:bg-slate-800 transition-colors">
                             Book Demo
                         </a>
@@ -38,6 +39,7 @@ export const Navbar = () => {
                     <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
                         <Link to="/" className="block px-3 py-2 text-base font-medium text-slate-700 hover:text-executive-blue hover:bg-slate-50 rounded-md">Home</Link>
                         <Link to="/case-study" className="block px-3 py-2 text-base font-medium text-slate-700 hover:text-executive-blue hover:bg-slate-50 rounded-md">Case Studies</Link>
+                        <Link to="/playgrounds" className="block px-3 py-2 text-base font-medium text-slate-700 hover:text-executive-blue hover:bg-slate-50 rounded-md">Playgrounds</Link>
                         <a href="#contact" className="block px-3 py-2 text-base font-medium text-executive-blue font-semibold">Book Demo</a>
                     </div>
                 </div>
