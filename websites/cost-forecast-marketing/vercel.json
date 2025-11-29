@@ -1,5 +1,5 @@
 {
-    "buildCommand": "cd ../.. && pnpm run build:website",
+    "buildCommand": "cd ../.. && pnpm run build:all",
     "installCommand": "npm install -g pnpm@10.24.0 && cd ../.. && pnpm install",
     "framework": null,
     "outputDirectory": "dist"
